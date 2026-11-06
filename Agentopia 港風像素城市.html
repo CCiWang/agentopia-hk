@@ -1,0 +1,1394 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Agentopia — 深水埗生活模擬 · 港風像素原型</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='6' fill='%230e2a29'/%3E%3Crect x='6' y='10' width='8' height='16' fill='%23f0b154'/%3E%3Crect x='14' y='6' width='6' height='20' fill='%23c46a55'/%3E%3Crect x='20' y='14' width='6' height='12' fill='%235c8b76'/%3E%3C/svg%3E">
+<style>
+/* ================= Agentopia · 設計代碼 ================= */
+:root{
+  --bg:#0b181a; --panel:#0e2a29; --panel2:#0a2020; --line:rgba(242,230,200,.14);
+  --cream:#f2e6c8; --dim:#c6b99a; --faint:#8f876f;
+  --amber:#f0b154; --amberdk:#b97c2e; --jade:#5c8b76; --coral:#c46a55;
+  --teal:#4a7a7e; --good:#86cf92; --bad:#e0705a; --ink:#191611;
+  --ui:"Microsoft JhengHei","PingFang TC","Noto Sans TC","Heiti TC",sans-serif;
+  --sign:"PMingLiU","MingLiU","Noto Serif TC","Source Han Serif TC",serif;
+  --mono:Consolas,"Courier New",monospace;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--cream);font-family:var(--ui);font-size:14px;-webkit-font-smoothing:antialiased}
+button{font-family:inherit;color:inherit;cursor:pointer;background:none;border:none}
+canvas{display:block}
+
+/* ---------- 舞台與世界 ---------- */
+#stage{position:fixed;inset:0;overflow:hidden;background:#132024;cursor:grab}
+#stage.drag{cursor:grabbing}
+.world{position:absolute;left:0;top:0;width:1600px;height:1000px;transform-origin:0 0;will-change:transform}
+#art{width:1600px;height:1000px;image-rendering:pixelated;image-rendering:crisp-edges}
+#signLayer,#markerLayer{position:absolute;inset:0;pointer-events:none}
+#markerLayer{pointer-events:none}
+
+/* ---------- 唐樓豎招牌（DOM 圖層） ---------- */
+@keyframes flicker1{0%,100%{opacity:1}46%{opacity:1}48%{opacity:.5}50%{opacity:1}82%{opacity:.85}84%{opacity:1}}
+@keyframes flicker2{0%,100%{opacity:1}63%{opacity:.75}65%{opacity:1}}
+@keyframes flicker3{0%,100%{opacity:1}30%,34%{opacity:.65}36%,100%{opacity:1}}
+.hksign{position:absolute;pointer-events:none;writing-mode:vertical-rl;transform-origin:50% 0;
+  font-family:var(--sign);
+  font-size:13.5px;letter-spacing:2px;padding:5px 3px;border:1.5px solid rgba(0,0,0,.55);
+  border-radius:2px;box-shadow:0 2px 4px rgba(0,0,0,.45);line-height:1;white-space:nowrap;
+  text-shadow:0 1px 0 rgba(0,0,0,.4)}
+.hksign::before{content:"";position:absolute;left:50%;top:-6px;width:2px;height:6px;background:#5a5148}
+
+/* ---------- 地點標記（白色圓 chip + 名稱膠囊） ---------- */
+.mk{position:absolute;transform:translate(-50%,-100%) scale(var(--inv,1));transform-origin:50% 100%;
+  display:flex;flex-direction:column;align-items:center;pointer-events:auto;cursor:pointer;z-index:5}
+.mk .dot{width:28px;height:28px;border-radius:50%;background:#f5edd8;border:2px solid rgba(20,24,22,.35);
+  display:flex;align-items:center;justify-content:center;color:#20322f;box-shadow:0 3px 8px rgba(0,0,0,.5);
+  transition:transform .15s ease}
+.mk .dot svg{width:15px;height:15px}
+.mk:hover .dot{transform:scale(1.14)}
+.mk .lab{margin-top:3px;background:rgba(245,237,216,.96);color:#1c2a27;font-size:10.5px;font-weight:600;
+  padding:2px 8px;border-radius:8px;white-space:nowrap;box-shadow:0 2px 6px rgba(0,0,0,.4);font-family:var(--ui)}
+.mk.pulse .dot::after{content:"";position:absolute;inset:-5px;border-radius:50%;border:2px solid var(--amber);animation:pulse 1.4s infinite}
+.mk.pulse .dot{position:relative}
+.mk.sel .dot{background:var(--amber);color:#2a1c05;box-shadow:0 0 0 3px rgba(240,177,84,.45),0 3px 8px rgba(0,0,0,.5)}
+body.nameless .mk .lab{display:none}
+body.markerless .mk{display:none}
+
+@keyframes pulse{0%{transform:scale(.8);opacity:1}100%{transform:scale(1.5);opacity:0}}
+
+/* ---------- HUD ---------- */
+.hud{position:fixed;top:0;left:0;right:0;height:64px;z-index:40;display:flex;align-items:center;
+  padding:0 16px;gap:10px;
+  background:linear-gradient(180deg,rgba(8,20,22,.92),rgba(8,20,22,.62) 75%,rgba(8,20,22,0));
+  pointer-events:none}
+.hud>*{pointer-events:auto}
+.hud-left,.hud-right{display:flex;align-items:center;gap:8px}
+.hud-center{position:absolute;left:50%;top:10px;transform:translateX(-50%)}
+.chip{display:flex;align-items:center;gap:7px;background:rgba(14,38,37,.85);border:1px solid var(--line);
+  border-radius:9px;padding:6px 11px;font-size:13px;box-shadow:0 4px 14px rgba(0,0,0,.3)}
+.chip b{font-weight:600}
+.chip .num{font-family:var(--mono);color:var(--amber)}
+.chip svg{width:15px;height:15px;flex:none}
+.wallet{min-width:120px}
+.avatarchip{display:flex;align-items:center;gap:8px;background:rgba(14,38,37,.9);border:1px solid var(--line);
+  border-radius:11px;padding:4px 12px 4px 4px;box-shadow:0 4px 14px rgba(0,0,0,.35)}
+.avatarchip canvas{width:36px;height:36px;border-radius:8px}
+.avatarchip div{display:flex;flex-direction:column;line-height:1.25;text-align:left}
+.avatarchip b{font-size:13px}
+.avatarchip span{font-size:10.5px;color:var(--dim)}
+.greenplus{width:38px;height:38px;border-radius:50%;background:#69b96f;color:#0c2410;font-size:20px;font-weight:700;
+  display:flex;align-items:center;justify-content:center;box-shadow:0 4px 12px rgba(80,180,90,.35)}
+.pillbar{display:flex;gap:4px;background:rgba(10,16,17,.9);border:1px solid var(--line);border-radius:999px;
+  padding:5px;box-shadow:0 8px 22px rgba(0,0,0,.45)}
+.pillbar button{color:var(--cream-dim);padding:5px 14px;border-radius:999px;font-size:12.5px;display:flex;align-items:center;gap:6px}
+.pillbar button.on{background:#f2e6c8;color:#16201d}
+.pillbar button:hover{color:var(--cream)}
+
+/* 附身按鈕 */
+.possess{position:fixed;right:22px;bottom:96px;z-index:44;display:flex;align-items:center;gap:8px;
+  background:linear-gradient(180deg,#f5c46a,#dd9c3a);color:#2a1c05;font-weight:700;font-size:13.5px;
+  padding:11px 18px;border-radius:999px;box-shadow:0 8px 22px rgba(224,156,58,.4),inset 0 1px 0 rgba(255,255,255,.4);
+  border:1px solid #a86f22}
+.possess:hover{transform:translateY(-1px)}
+.possess svg{width:16px;height:16px}
+
+/* ---------- 街坊動態 feed ---------- */
+.feed{position:fixed;top:78px;right:16px;width:296px;z-index:38;background:rgba(11,30,30,.94);
+  border:1px solid var(--line);border-radius:13px;box-shadow:0 14px 36px rgba(0,0,0,.45);
+  display:flex;flex-direction:column;overflow:hidden;transition:opacity .25s,transform .3s}
+.feed-head{display:flex;align-items:center;gap:8px;padding:10px 13px;border-bottom:1px solid var(--line)}
+.feed-head b{font-size:13px}
+.feed-live{width:7px;height:7px;border-radius:50%;background:#86cf92;box-shadow:0 0 8px #86cf92;animation:blink 2s infinite}
+@keyframes blink{50%{opacity:.35}}
+.feed-head .sp{flex:1}
+.feed-head button{color:var(--dim);font-size:12px}
+.feed-list{max-height:300px;overflow-y:auto;padding:6px 8px;scrollbar-width:thin}
+.ev{display:flex;gap:9px;padding:7px 6px;border-radius:9px;font-size:12px;line-height:1.45}
+.ev:hover{background:rgba(242,230,200,.06)}
+.ev .t{font-family:var(--mono);color:var(--faint);font-size:10.5px;flex:none;width:34px}
+.ev.pulseev{background:rgba(240,177,84,.1);border-left:2px solid var(--amber)}
+
+/* ---------- 右側面板 ---------- */
+.panel{position:fixed;top:74px;right:14px;bottom:96px;width:378px;z-index:46;display:flex;flex-direction:column;
+  background:linear-gradient(180deg,#103231,#0a2221);border:1px solid var(--line);border-radius:15px;
+  box-shadow:0 24px 60px rgba(0,0,0,.6);overflow:hidden;
+  transform:translateX(calc(100% + 30px));opacity:0;pointer-events:none;
+  transition:transform .38s cubic-bezier(.22,1,.36,1),opacity .25s}
+.panel.open{transform:none;opacity:1;pointer-events:auto}
+.panel-head{display:flex;align-items:flex-start;gap:10px;padding:16px 18px 12px;border-bottom:1px solid var(--line)}
+.panel-head .ic{width:38px;height:38px;border-radius:10px;background:rgba(240,177,84,.14);color:var(--amber);
+  display:flex;align-items:center;justify-content:center;flex:none}
+.panel-head .ic svg{width:20px;height:20px}
+.panel-head h2{font-size:18px;letter-spacing:.5px;flex:1}
+.panel-head .en{font-size:10.5px;color:var(--faint);letter-spacing:2px;text-transform:uppercase;margin-top:2px}
+.panel-close{color:var(--dim);font-size:20px;width:30px;height:30px;border-radius:8px}
+.panel-close:hover{background:rgba(242,230,200,.08);color:var(--cream)}
+.panel-body{flex:1;overflow-y:auto;padding:14px 18px 20px;scrollbar-width:thin}
+.desc{font-size:12.5px;line-height:1.65;color:var(--dim);margin-bottom:12px}
+
+.who{display:flex;gap:6px;flex-wrap:wrap;margin:4px 0 12px}
+.who .wchip{display:flex;align-items:center;gap:5px;background:rgba(92,139,118,.16);border:1px solid rgba(92,139,118,.4);
+  border-radius:999px;padding:3px 9px 3px 4px;font-size:11.5px}
+.who .wchip canvas{width:20px;height:20px;border-radius:5px}
+
+.row{display:flex;align-items:center;gap:10px;padding:10px 11px;border:1px solid var(--line);border-radius:11px;
+  margin-bottom:8px;background:rgba(242,230,200,.03)}
+.row .ri{width:30px;height:30px;border-radius:8px;background:rgba(242,230,200,.08);display:flex;align-items:center;justify-content:center;color:var(--cream-dim);flex:none}
+.row .ri svg{width:16px;height:16px}
+.row .rm{flex:1;min-width:0}
+.row .rm b{font-size:13px;display:block}
+.row .rm span{font-size:11px;color:var(--faint)}
+.row .do{flex:none;background:rgba(240,177,84,.16);color:var(--amber);border:1px solid rgba(240,177,84,.4);
+  padding:6px 11px;border-radius:8px;font-size:12px;font-weight:600}
+.row .do:hover{background:rgba(240,177,84,.3)}
+.row .do.ghost{background:transparent;color:var(--dim)}
+.money{font-family:var(--mono);font-size:11.5px}
+.money.plus{color:var(--good)} .money.minus{color:var(--bad)}
+
+/* 數據卡 */
+.stat3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin:10px 0 14px}
+.stat{background:rgba(242,230,200,.05);border:1px solid var(--line);border-radius:10px;padding:9px 11px}
+.stat b{font-family:var(--mono);font-size:16px;color:var(--cream);display:block}
+.stat span{font-size:10.5px;color:var(--faint)}
+.bigbal{font-family:var(--mono);font-size:30px;color:var(--amber);margin:4px 0 2px}
+.bar{height:7px;background:rgba(242,230,200,.1);border-radius:99px;overflow:hidden;margin:5px 0 2px}
+.bar i{display:block;height:100%;background:linear-gradient(90deg,var(--jade),var(--amber));border-radius:99px}
+.barlbl{display:flex;justify-content:space-between;font-size:10.5px;color:var(--faint);margin-bottom:10px}
+
+/* 成就 */
+.ach{display:flex;gap:11px;align-items:center;padding:11px 4px;border-bottom:1px solid var(--line)}
+.ach:last-child{border-bottom:0}
+.ach .aico{width:34px;height:34px;border-radius:10px;display:flex;align-items:center;justify-content:center;flex:none}
+.ach.done .aico{background:rgba(134,207,146,.18);color:var(--good)}
+.ach:not(.done) .aico{background:rgba(242,230,200,.07);color:var(--faint)}
+.ach .am{flex:1}
+.ach .am b{font-size:13px}
+.ach .am p{font-size:11px;color:var(--faint);margin-top:1px}
+.ach .ast{font-size:10.5px;font-family:var(--mono);color:var(--dim)}
+.ach.done .ast{color:var(--good)}
+
+/* 人物檔案 */
+.profhead{display:flex;gap:14px;align-items:center;margin-bottom:12px}
+.profhead canvas{width:64px;height:64px;border-radius:14px;border:2px solid rgba(240,177,84,.5)}
+.profhead h3{font-size:19px}
+.profhead .sub{font-size:11.5px;color:var(--dim)}
+.kv{display:flex;justify-content:space-between;font-size:12.5px;padding:7px 0;border-bottom:1px dashed var(--line)}
+.kv span{color:var(--faint)} .kv b{font-weight:600}
+.relchip{display:inline-block;font-size:11px;background:rgba(92,139,118,.2);border:1px solid rgba(92,139,118,.45);
+  color:#bfe0cd;border-radius:99px;padding:2px 9px;margin:3px 4px 0 0}
+
+/* ---------- 底部 dock ---------- */
+.dock{position:fixed;bottom:16px;left:50%;transform:translateX(-50%);z-index:42;display:flex;gap:3px;
+  background:rgba(9,22,23,.93);border:1px solid var(--line);border-radius:16px;padding:6px;
+  box-shadow:0 18px 40px rgba(0,0,0,.5)}
+.dock button{width:104px;height:50px;border-radius:11px;display:flex;flex-direction:column;align-items:center;justify-content:center;
+  gap:2px;color:var(--dim);font-size:11.5px}
+.dock button svg{width:18px;height:18px}
+.dock button:hover{color:var(--cream)}
+.dock button.on{background:rgba(240,177,84,.15);color:var(--cream);box-shadow:inset 0 0 0 1px rgba(240,177,84,.4)}
+.dock .sep{width:1px;background:var(--line);margin:5px 3px}
+
+/* 地圖控制 */
+.mapctrl{position:fixed;right:18px;bottom:100px;z-index:39;display:flex;flex-direction:column;gap:6px;
+  transition:transform .3s}
+body.panel-open .mapctrl{transform:translateX(-400px)}
+.mapctrl button{width:38px;height:38px;border-radius:10px;background:rgba(14,38,37,.9);border:1px solid var(--line);
+  color:var(--cream);font-size:16px;box-shadow:0 6px 16px rgba(0,0,0,.4)}
+.mapctrl button:hover{background:rgba(240,177,84,.2)}
+
+/* ---------- 社交對話 ---------- */
+.dlg{position:fixed;left:18px;bottom:100px;width:560px;z-index:47;background:rgba(13,36,35,.97);
+  border:1px solid rgba(240,177,84,.4);border-radius:14px;box-shadow:0 20px 50px rgba(0,0,0,.6);
+  transform:translateY(20px);opacity:0;pointer-events:none;transition:.3s cubic-bezier(.22,1,.36,1)}
+.dlg.open{transform:none;opacity:1;pointer-events:auto}
+.dlg-head{display:flex;justify-content:space-between;padding:11px 16px;border-bottom:1px solid var(--line);font-size:12px;color:var(--dim)}
+.dlg-head b{color:var(--amber)}
+.dlg-body{display:flex;gap:12px;padding:14px 16px}
+.dlg-body canvas{width:46px;height:46px;border-radius:11px;flex:none}
+.dlg-line{flex:1}
+.dlg-line .who2{font-size:12px;color:var(--amber);margin-bottom:3px}
+.dlg-line .say{font-size:14px;line-height:1.6}
+.dlg-actions{display:flex;gap:8px;padding:0 16px 14px}
+.dlg-actions button{flex:1;background:rgba(242,230,200,.07);border:1px solid var(--line);border-radius:9px;
+  padding:8px;font-size:12.5px;color:var(--cream-dim)}
+.dlg-actions button.primary{background:rgba(240,177,84,.18);border-color:rgba(240,177,84,.5);color:var(--amber)}
+.dlg-actions button:hover{background:rgba(242,230,200,.12)}
+
+/* ---------- 全螢幕 overlay ---------- */
+.ov{position:fixed;inset:0;z-index:60;background:rgba(5,12,13,.72);display:flex;align-items:center;justify-content:center;
+  opacity:0;pointer-events:none;transition:opacity .25s}
+.ov.open{opacity:1;pointer-events:auto}
+
+/* 手機 */
+.phone{width:322px;height:660px;background:#0c1a1d;border-radius:36px;border:1px solid rgba(242,230,200,.25);
+  box-shadow:0 40px 100px rgba(0,0,0,.7),inset 0 0 0 8px #132327;display:flex;flex-direction:column;overflow:hidden}
+.phone-status{display:flex;justify-content:space-between;padding:12px 24px 4px;font-size:11px;color:var(--dim);font-family:var(--mono)}
+.phone-app{flex:1;overflow-y:auto;padding:10px 14px;scrollbar-width:thin}
+.phone-tabs{display:flex;gap:6px;padding:8px 14px;border-top:1px solid var(--line)}
+.phone-tabs button{flex:1;font-size:12px;padding:7px;border-radius:9px;color:var(--dim)}
+.phone-tabs button.on{background:rgba(240,177,84,.16);color:var(--amber)}
+.chat{display:flex;gap:9px;align-items:center;padding:9px 6px;border-bottom:1px solid var(--line);cursor:pointer}
+.chat canvas{width:34px;height:34px;border-radius:9px;flex:none}
+.chat b{font-size:13px}
+.chat p{font-size:11px;color:var(--faint);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.msg{max-width:80%;padding:8px 11px;border-radius:12px;font-size:12.5px;line-height:1.5;margin:8px 0}
+.msg.me{background:rgba(64,110,108,.9);margin-left:auto;border-bottom-right-radius:3px}
+.msg.ot{background:rgba(242,230,200,.1);border-bottom-left-radius:3px}
+.diary{background:rgba(242,230,200,.05);border:1px solid var(--line);border-radius:10px;padding:10px 12px;margin-bottom:8px;font-size:12px;line-height:1.6}
+.diary time{font-size:10px;color:var(--faint);font-family:var(--mono)}
+.walcard{background:linear-gradient(135deg,#1d4a44,#12302e);border:1px solid rgba(240,177,84,.35);border-radius:14px;padding:14px;margin-bottom:10px}
+.walcard b{font-family:var(--mono);font-size:24px;color:var(--amber)}
+.phone-hint{font-size:10.5px;color:var(--faint);text-align:center;padding:8px;border-top:1px dashed var(--line);margin-top:6px}
+
+/* 附身 modal */
+.possmodal{width:540px;background:linear-gradient(180deg,#14322f,#0b2322);border:1px solid rgba(240,177,84,.45);
+  border-radius:18px;padding:22px;box-shadow:0 30px 80px rgba(0,0,0,.7)}
+.possmodal h3{font-size:18px;margin-bottom:4px}
+.possmodal .ctx{font-size:12px;color:var(--dim);margin-bottom:14px;line-height:1.6}
+.possmodal textarea{width:100%;height:78px;background:rgba(242,230,200,.06);border:1px solid var(--line);border-radius:10px;
+  color:var(--cream);padding:11px;font-family:var(--ui);font-size:13px;resize:none}
+.possmodal textarea:focus{outline:none;border-color:rgba(240,177,84,.5)}
+.chips{display:flex;gap:6px;flex-wrap:wrap;margin:10px 0}
+.chips button{font-size:11.5px;padding:5px 10px;border-radius:99px;background:rgba(242,230,200,.08);color:var(--dim)}
+.possmodal .rowbtns{display:flex;gap:8px;margin-top:12px}
+.possmodal .rowbtns button{flex:1;padding:10px;border-radius:10px;font-weight:600}
+.submit{background:linear-gradient(180deg,#f5c46a,#dd9c3a);color:#2a1c05}
+.reaction{margin-top:12px;padding:11px 13px;background:rgba(134,207,146,.08);border-left:3px solid var(--good);
+  border-radius:0 10px 10px 0;font-size:13px;line-height:1.6;display:none}
+.reaction.show{display:block}
+
+/* tooltip / toast / grain */
+#tip{position:fixed;z-index:80;background:#f5edd8;color:#1c2a27;font-size:12px;padding:7px 10px;border-radius:8px;
+  pointer-events:none;opacity:0;transition:opacity .12s;max-width:230px;box-shadow:0 8px 20px rgba(0,0,0,.4)}
+#tip.show{opacity:1}
+#toast{position:fixed;left:50%;bottom:110px;transform:translateX(-50%) translateY(8px);z-index:90;
+  background:rgba(14,38,37,.96);border:1px solid rgba(240,177,84,.5);color:var(--cream);padding:10px 18px;
+  border-radius:999px;font-size:13px;opacity:0;transition:.25s;pointer-events:none;box-shadow:0 10px 30px rgba(0,0,0,.5)}
+#toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+.grain{position:fixed;inset:0;z-index:35;pointer-events:none;opacity:.07;mix-blend-mode:overlay;display:none}
+
+@media (max-width:980px){
+  .feed{display:none}
+  .panel{width:min(378px,92vw)}
+  .dlg{width:calc(100vw - 36px)}
+  .dock button{width:80px}
+}
+</style>
+</head>
+<body>
+<div id="stage">
+  <div class="world" id="world">
+    <canvas id="art" width="1600" height="1000"></canvas>
+    <div id="signLayer"></div>
+    <div id="markerLayer"></div>
+  </div>
+</div>
+<div class="grain"></div>
+
+<!-- HUD -->
+<header class="hud">
+  <div class="hud-left">
+    <div class="chip"><svg viewBox="0 0 24 24" fill="none" stroke="#f0b154" stroke-width="2"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M2 12h2M20 12h2M5 5l1.5 1.5M17.5 17.5L19 19M19 5l-1.5 1.5M6.5 17.5L5 19"/></svg><b id="hudTime">18:42</b></div>
+    <div class="chip"><svg viewBox="0 0 24 24" fill="none" stroke="#86cf92" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M8 14s1.5 2 4 2 4-2 4-2M9 9h.01M15 9h.01"/></svg><b id="hudMood">平靜</b></div>
+    <div class="chip wallet"><span style="color:var(--faint)">HK$</span><b class="num" id="hudBal">1,280</b></div>
+  </div>
+  <div class="hud-center">
+    <div class="pillbar">
+      <button id="districtBtn">深水埗 · 福華街</button>
+      <button id="namesToggle" class="on">名稱</button>
+      <button id="guideBtn">更多</button>
+    </div>
+  </div>
+  <div class="hud-right">
+    <button class="avatarchip" id="avatarBtn" title="打開人物檔案">
+      <canvas id="portrait" width="72" height="72"></canvas>
+      <div><b>林知夏</b><span id="hudJob">咖啡店兼職</span></div>
+    </button>
+    <button class="greenplus" id="addBtn" title="查看錢包">＋</button>
+  </div>
+</header>
+
+<button class="possess" id="possessBtn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 11V6a2 2 0 0 0-4 0v5M14 10V4a2 2 0 0 0-4 0v6M10 10.5V6a2 2 0 0 0-4 0v8M18 8a2 2 0 1 1 4 0v6a8 8 0 0 1-8 8h-2a8 8 0 0 1-7-4l-2.5-4.5a2 2 0 0 1 3.4-2L10 13"/></svg>附身 · Take Control</button>
+
+<!-- 街坊動態 -->
+<aside class="feed" id="feed">
+  <div class="feed-head"><span class="feed-live"></span><b>街坊動態</b><span class="sp"></span><button id="feedToggle">收合</button></div>
+  <div class="feed-list" id="feedList"></div>
+</aside>
+
+<!-- 右側面板 -->
+<aside class="panel" id="panel">
+  <div class="panel-head">
+    <div class="ic" id="panelIc"></div>
+    <div><h2 id="panelTitle"></h2><div class="en" id="panelEn"></div></div>
+    <button class="panel-close" id="panelClose">×</button>
+  </div>
+  <div class="panel-body" id="panelBody"></div>
+</aside>
+
+<!-- 地圖控制 -->
+<div class="mapctrl">
+  <button id="zoomIn" title="放大">＋</button>
+  <button id="zoomOut" title="縮小">－</button>
+  <button id="locateBtn" title="回到知夏">◎</button>
+</div>
+
+<!-- 社交對話 -->
+<div class="dlg" id="dlg">
+  <div class="dlg-head"><span id="dlgWhere">對話</span><b id="dlgWho">陳樂言 × 林知夏</b><button id="dlgClose" style="color:var(--dim)">×</button></div>
+  <div class="dlg-body">
+    <canvas id="dlgAvatar1" width="46" height="46"></canvas>
+    <div class="dlg-line"><div class="who2" id="dlgName">陳樂言</div><div class="say" id="dlgSay"></div></div>
+  </div>
+  <div class="dlg-actions">
+    <button id="dlgNext" class="primary">繼續傾</button>
+    <button id="dlgRel">查看關係</button>
+    <button id="dlgPossess">親手回應</button>
+  </div>
+</div>
+
+<!-- dock -->
+<nav class="dock" id="dock">
+  <button data-view="city" class="on"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 21h18M5 21V7l7-4 7 4v14M9 10h2M13 10h2M9 14h2M13 14h2"/></svg>城市</button>
+  <button data-view="people"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c.8-3.4 3.2-5 6.5-5s5.7 1.6 6.5 5M16 5a3 3 0 0 1 0 6M17 15.5c2.2.5 3.6 1.7 4.2 4.5"/></svg>人物</button>
+  <button data-view="career"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="7" width="18" height="13" rx="2"/><path d="M9 7V5a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v2M3 12h18"/></svg>工作</button>
+  <button data-view="wealth"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="6" width="20" height="13" rx="2"/><circle cx="12" cy="12.5" r="2.5"/><path d="M6 10h.01M18 15h.01"/></svg>財富</button>
+  <button data-view="achv"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="9" r="6"/><path d="M9 14.5L8 21l4-2 4 2-1-6.5"/></svg>成就</button>
+  <div class="sep"></div>
+  <button data-view="phone"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="7" y="2" width="10" height="20" rx="2.5"/><path d="M10 18.5h4"/></svg>手機</button>
+</nav>
+
+<!-- overlay: 手機 -->
+<div class="ov" id="phoneOv">
+  <div class="phone">
+    <div class="phone-status"><span id="phoneTime">21:43</span><span>●●●○ 82%</span></div>
+    <div class="phone-app" id="phoneApp"></div>
+    <div class="phone-tabs">
+      <button data-tab="msg" class="on">訊息</button>
+      <button data-tab="note">筆記</button>
+      <button data-tab="wallet">錢包</button>
+    </div>
+    <div class="phone-hint">整合預留 · KeepPhoneMount（正式版載入獨立手機專案）</div>
+  </div>
+</div>
+
+<!-- overlay: 附身 -->
+<div class="ov" id="possessOv">
+  <div class="possmodal">
+    <h3>附身 · 接管知夏</h3>
+    <div class="ctx" id="possCtx">好日子咖啡 · 21:43 — 陳樂言啱啱問你收工後想去邊。寫一句你想對佢講嘅說話。</div>
+    <textarea id="possInput" placeholder="例如：直接邀請陳樂言去看電影。"></textarea>
+    <div class="chips" id="possChips"></div>
+    <div class="rowbtns">
+      <button id="possCancel">退出</button>
+      <button class="submit" id="possSubmit">讓知夏說出口</button>
+    </div>
+    <div class="reaction" id="possReaction"></div>
+  </div>
+</div>
+
+<div id="tip"></div>
+<div id="toast"></div>
+
+<script>
+/* ============================================================
+   DATA —— 全部示範資料集中在此。正式版換成 DeepSeek 世界狀態即可。
+   ============================================================ */
+const ICONS = {
+  home:'<path d="M4 11l8-7 8 7v9a1 1 0 0 1-1 1h-4v-6h-6v6H5a1 1 0 0 1-1-1z"/>',
+  bowl:'<path d="M3 13h18a9 9 0 0 1-18 0zM8 10c0-2 1-3 1-5M12 10c0-2 1-3 1-5M16 10c0-2 1-3 1-5"/>',
+  cup:'<path d="M5 8h11v7a4 4 0 0 1-4 4H9a4 4 0 0 1-4-4zM16 9h2a2.5 2.5 0 0 1 0 5h-2M8 2v2M11 2v2M14 2v2"/>',
+  brief:'<rect x="3" y="8" width="18" height="12" rx="2"/><path d="M8 8V6a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2M3 13h18"/>',
+  bag:'<path d="M6 8h12l1 12H5zM9 8V6a3 3 0 0 1 6 0v2"/>',
+  tree:'<circle cx="12" cy="9" r="5"/><path d="M12 14v7M9 21h6"/>',
+  book:'<path d="M5 4h11a3 3 0 0 1 3 3v13H8a3 3 0 0 0-3 3zM5 20a3 3 0 0 1 3-3h11M9 8h6M9 12h6"/>',
+  bus:'<rect x="4" y="4" width="16" height="14" rx="2"/><path d="M4 11h16M7 18v2M17 18v2"/><circle cx="8" cy="16.5" r="1"/><circle cx="16" cy="16.5" r="1"/>',
+  metro:'<circle cx="12" cy="12" r="9"/><path d="M8 16v-4a4 4 0 0 1 8 0v4M8 16h8"/>',
+  film:'<rect x="4" y="5" width="16" height="14" rx="2"/><path d="M8 5v14M16 5v14M4 9h4M4 15h4M16 9h4M16 15h4"/>',
+  flower:'<circle cx="12" cy="8" r="2.5"/><circle cx="8" cy="11" r="2.5"/><circle cx="16" cy="11" r="2.5"/><circle cx="10" cy="14" r="2.5"/><circle cx="14" cy="14" r="2.5"/><path d="M12 16v5"/>',
+  pill:'<rect x="3" y="9" width="18" height="6" rx="3" transform="rotate(-30 12 12)"/><path d="M9.5 9.5l5 5"/>',
+  wash:'<circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="3"/><path d="M5 7l2 2"/>',
+  meat:'<rect x="6" y="4" width="12" height="16" rx="2"/><path d="M10 4v16M14 4v16"/>',
+  bread:'<path d="M4 12c0-4 3-7 8-7s8 3 8 7v6a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2zM8 13v3M12 13v3M16 13v3"/>',
+  people:'<circle cx="12" cy="8" r="3.5"/><path d="M5 20c1-4 3.5-5.5 7-5.5s6 1.5 7 5.5M3 9h.01M21 9h.01"/>',
+  market:'<path d="M4 9l2-5h12l2 5M4 9c2 1.5 4 1.5 6 0 2 1.5 4 1.5 6 0M5 12v8h14v-8M9 16h6"/>',
+  coin:'<circle cx="12" cy="12" r="8"/><path d="M12 8v8M9.5 10h4M9.5 14h4"/>',
+  tea:'<path d="M6 9h12v4a6 6 0 0 1-12 0zM9 17h6M10 6c0-1.5 1.5-2 2-3 2 1 2 2.5 0 3.5"/>',
+  chip:'<rect x="6" y="6" width="12" height="12" rx="2"/><path d="M9 2v4M15 2v4M9 18v4M15 18v4M2 9h4M2 15h4M18 9h4M18 15h4"/>',
+  hammer:'<path d="M14 6l4 4M12 8l-8 8 3 3 8-8M15 5l4-1 2 2-1 4z"/>',
+  ball:'<circle cx="12" cy="12" r="8"/><path d="M12 7l3 2.5-1 3.5h-4L9 9.5zM12 12v8M5.5 9l4.5 3M18.5 9l-4.5 3"/>',
+  pen:'<path d="M4 20l1-4L16.5 4.5a2.1 2.1 0 0 1 3 3L8 19z"/>',
+  pin:'<path d="M12 21s-7-6-7-11a7 7 0 0 1 14 0c0 5-7 11-7 11zM12 12.5a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5z"/>'
+};
+function ic(n){return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">'+ICONS[n]+'</svg>';}
+
+const AGENTS = [
+ {id:'lin', name:'林知夏', age:24, job:'咖啡店兼職', locId:'cafe',
+  skin:'#e8b98a', hair:'#2b2320', shirt:'#5c8b76', accent:'#f0b154',
+  mood:'平靜', asp:'成為全職設計師，儲夠學費去讀一年制設計文憑',
+  friends:[{id:'chan', rel:'最近熟絡的朋友'}], met:['lin','chan'],
+  recent:['今日喺好日子咖啡返三個鐘','同樂言夾咗收工去茶記'], at:[830,230]},
+ {id:'chan', name:'陳樂言', age:25, job:'協成商業中心初級文員', locId:'cafe',
+  skin:'#d9a878', hair:'#1c1a18', shirt:'#3f6265', accent:'#c46a55',
+  mood:'開朗', asp:'搞掂儲蓄，兩年後上車買層小單位',
+  friends:[{id:'lin', rel:'最近熟絡的朋友'}], met:['lin','chan','he'],
+  recent:'剛放工，想搵知夏傾計'.split('|'), at:[905,258]},
+ {id:'he', name:'許家晴', age:23, job:'海棠花店店員', locId:'flower',
+  skin:'#f0c39a', hair:'#3a2a22', shirt:'#b57d6a', accent:'#47a99c',
+  mood:'灑脫', asp:'開自己嘅網上花店，專做結婚花球',
+  friends:[{id:'lin', rel:'點頭之交'}], met:['lin','chan','he'],
+  recent:['收咗舖，買咗白玫瑰送自己'], at:[228,496]}
+];
+
+/* 地點：x,y 為標記座標；rect 為建築（高亮用）；activities 為可做的事 */
+const LOC = [
+ {id:'home', name:'華安大廈', en:'Wa On Building', t:'住宅', icon:'home', x:1198, y:232, rect:{x:1104,y:14,w:188,h:208},
+  desc:'深水埗唐樓五樓分租套房，廁所廚房共用，月租 HK$3,200。窗外見到對面的冷氣機同晾衣架。', presence:['lin'],
+  acts:[
+   {l:'休息兩個鐘', s:'恢復心情 +12', a:{type:'free',mood:12,mins:120,note:'在家躺了一會，精神返嚟。'}},
+   {l:'寫今日的日記', s:'私人筆記 +1，心情 +6', a:{type:'note',mood:6,note:'日記已存入手機。'}},
+   {l:'睇租單', s:'月租 HK$3,200', a:{type:'free',mood:0,note:'業主陳太WhatsApp：「本月租金記得過數。」'}}
+  ]},
+ {id:'cha', name:'美好茶餐廳', en:'Mei Ho Café', t:'食肆', icon:'bowl', x:84, y:232, rect:{x:0,y:36,w:168,h:186},
+  desc:'開咗四十年的冰室，蛋撻係街坊共識。下午常有阿伯睇報紙。', presence:['chan'],
+  acts:[
+   {l:'菠蘿油', s:'HK$22 · 心情 +4', a:{type:'pay',amt:22,mood:4,item:'菠蘿油'}},
+   {l:'熱奶茶', s:'HK$18 · 心情 +2', a:{type:'pay',amt:18,mood:2,item:'熱奶茶'}},
+   {l:'叉燒飯', s:'HK$48 · 心情 +6', a:{type:'pay',amt:48,mood:6,item:'叉燒飯'}},
+   {l:'是日常餐', s:'叉燒飯＋奶茶 · HK$42 · 心情 +7', a:{type:'pay',amt:42,mood:7,item:'是日常餐'}},
+   {l:'兼職一小時', s:'+HK$70', a:{type:'earn',amt:70,mins:60,item:'茶餐廳侍應'}},
+   {l:'同街坊傾兩句', s:'心情 +5', a:{type:'free',mood:5,mins:15,note:'阿伯話今日凍咗，叫你著多件衫。'}}
+  ]},
+ {id:'cafe', name:'好日子咖啡', en:'Good Day Coffee', t:'食肆', icon:'cup', x:830, y:232, rect:{x:754,y:64,w:152,h:158},
+  desc:'工業風小咖啡店，你返工的地方。老闆娘話你拉花愈來愈似樣。', presence:['lin','chan'],
+  acts:[
+   {l:'上一個三小時輪班', s:'3小時 × HK$80 · +HK$240', a:{type:'earn',amt:240,hours:3,mins:180,item:'咖啡店兼職'}},
+   {l:'手沖一杯', s:'HK$38 · 心情 +5', a:{type:'pay',amt:38,mood:5,item:'手沖咖啡'}},
+   {l:'同陳樂言傾偈', s:'觸發社交事件', a:{type:'chat',agent:'chan'}}
+  ]},
+ {id:'office', name:'協成商業中心', en:'Het Shing Centre', t:'工作', icon:'brief', x:493, y:762, rect:{x:404,y:544,w:178,h:206},
+  desc:'十一層小型商廈，電梯慢得可愛。樓下有打印店同茶水間。', presence:['chan'],
+  acts:[
+   {l:'瀏覽職位', s:'打開工作面板', a:{type:'open',target:'career'}},
+   {l:'茶水間歇腳', s:'心情 +4', a:{type:'free',mood:4,mins:10,note:'飲咗杯免費菊花茶。'}}
+  ]},
+ {id:'store', name:'永興士多', en:'Wing Hing Store', t:'商店', icon:'bag', x:216, y:232, rect:{x:168,y:42,w:96,h:180},
+  desc:'街角老士多，雪櫃門永遠推不順。老闆記得每個街坊鐘意飲邊支紙包。', presence:[],
+  acts:[
+   {l:'買飯糰', s:'HK$18', a:{type:'pay',amt:18,mood:2,item:'飯糰'}},
+   {l:'買紙包檸茶', s:'HK$9', a:{type:'pay',amt:9,mood:1,item:'紙包檸茶'}},
+   {l:'買日用品', s:'HK$26', a:{type:'pay',amt:26,mood:0,item:'牙膏'}},
+   {l:'兼職一小時', s:'+HK$65', a:{type:'earn',amt:65,mins:60,item:'便利店店員'}}
+  ]},
+ {id:'park', name:'福榮街休憩處', en:'Fuk Wing St Park', t:'公共', icon:'tree', x:180, y:880, rect:{x:0,y:820,w:430,h:170},
+  desc:'兩棵大榕樹、幾張長凳。傍晚有阿伯捉棋，貓咪瞓在石春路上。', presence:['he'],
+  acts:[
+   {l:'坐低唞下', s:'心情 +10', a:{type:'free',mood:10,mins:20,note:'風吹過榕樹葉，煩惱少一半。'}},
+   {l:'同阿伯捉棋', s:'心情 +6', a:{type:'free',mood:6,mins:30,note:'你輸咗，但阿伯教咗你一招。'}},
+   {l:'影低街景', s:'心情 +4 · 存入手機', a:{type:'note',mood:4,note:'影咗黃昏的深水埗。'}}
+  ]},
+ {id:'book', name:'街角書店', en:'Corner Bookshop', t:'文化', icon:'book', x:978, y:232, rect:{x:906,y:46,w:144,h:176},
+  desc:'開到夜晚九點的樓上書店，老闆娘會推薦你唔會睇的書。', presence:[],
+  acts:[
+   {l:'免費睇書', s:'心情 +5 · 設計靈感 +1', a:{type:'free',mood:5,mins:20,note:'睇咗幾頁日系平面設計集。'}},
+   {l:'買二手畫冊', s:'HK$68', a:{type:'pay',amt:68,mood:6,item:'二手畫冊'}}
+  ]},
+ {id:'bakery', name:'榮記麵包店', en:'Wing Kee Bakery', t:'食肆', icon:'bread', x:307, y:232, rect:{x:264,y:26,w:86,h:196},
+  desc:'剛出爐的菠蘿包喺街外十米就聞到。', presence:[],
+  acts:[
+   {l:'菠蘿包', s:'HK$8', a:{type:'pay',amt:8,mood:3,item:'菠蘿包'}},
+   {l:'蛋撻', s:'HK$10', a:{type:'pay',amt:10,mood:3,item:'蛋撻'}}
+  ]},
+ {id:'siu', name:'金禾燒味', en:'Kam Wo Siu Mei', t:'食肆', icon:'meat', x:463, y:232, rect:{x:404,y:52,w:118,h:170},
+  desc:'櫥窗掛住油光閃閃的燒鵝，老闆飛刀好快。', presence:[],
+  acts:[
+   {l:'燒味飯盒', s:'HK$46 · 心情 +6', a:{type:'pay',amt:46,mood:6,item:'燒味飯盒'}}
+  ]},
+ {id:'laundry', name:'順發洗衣', en:'Shun Fat Laundry', t:'服務', icon:'wash', x:568, y:232, rect:{x:522,y:44,w:92,h:178},
+  desc:'街坊制：三點前拿來，當晚執好。', presence:[],
+  acts:[
+   {l:'洗衫', s:'HK$30 · 心情 +3', a:{type:'pay',amt:30,mood:3,item:'洗衣'}}
+  ]},
+ {id:'pharm', name:'安和藥房', en:'On Wo Pharmacy', t:'服務', icon:'pill', x:657, y:232, rect:{x:614,y:32,w:86,h:190},
+  desc:'開到夜晚十點，職員會講普通話、廣東話同唔太流利的英文。', presence:[],
+  acts:[
+   {l:'買喉糖', s:'HK$12', a:{type:'pay',amt:12,mood:0,item:'喉糖'}},
+   {l:'買感冒藥', s:'HK$45', a:{type:'pay',amt:45,mood:2,item:'感冒藥'}}
+  ]},
+ {id:'community', name:'社區中心', en:'Community Centre', t:'公共', icon:'people', x:220, y:762, rect:{x:168,y:574,w:104,h:176},
+  desc:'免費班會、電腦班、親子工作坊。佈告板永遠貼滿宣傳單張。', presence:[],
+  acts:[
+   {l:'參加班會', s:'心情 +8 · 認識許家晴', a:{type:'free',mood:8,mins:45,note:'家晴也在，你們交換了手機號碼。',meet:'he'}},
+   {l:'睇佈告板', s:'心情 +2', a:{type:'free',mood:2,mins:5,note:'週六有免費咖啡工作坊。'}}
+  ]},
+ {id:'terminus', name:'小巴總站', en:'Minibus Terminus', t:'交通', icon:'bus', x:850, y:880, rect:{x:700,y:830,w:310,h:150},
+  desc:'綠色小巴 66A 往旺角，紅色小巴隨意上落。車長好鍾意鳴笛。', presence:[],
+  acts:[
+   {l:'搭車出去', s:'HK$7 · 心情 +1', a:{type:'pay',amt:7,mood:1,mins:20,item:'小巴車費'}}
+  ]},
+ {id:'metro', name:'深水埗站 A2', en:'Sham Shui Po MTR', t:'交通', icon:'metro', x:1090, y:860, rect:{x:1010,y:830,w:160,h:140},
+  desc:'下班時間月台永遠逼滿人，冷氣凍到要著外套。', presence:[],
+  acts:[
+   {l:'搭地鐵', s:'HK$12', a:{type:'pay',amt:12,mood:1,mins:15,item:'地鐵車費'}},
+   {l:'增值八達通', s:'HK$100', a:{type:'pay',amt:100,mood:0,item:'八達通增值'}}
+  ]},
+ {id:'market', name:'福榮街街市', en:'Fuk Wing Market', t:'商店', icon:'market', x:565, y:870, rect:{x:430,y:830,w:270,h:160},
+  desc:'檔主阿珍姐會自動幫你加蔥。晚上七點後半價。', presence:[],
+  acts:[
+   {l:'買菜', s:'HK$35 · 心情 +2', a:{type:'pay',amt:35,mood:2,item:'街市買菜'}},
+   {l:'買生果', s:'HK$25 · 心情 +3', a:{type:'pay',amt:25,mood:3,item:'提子'}}
+  ]},
+ {id:'cinema', name:'電影放映室', en:'Mini Cinema', t:'文化', icon:'film', x:631, y:496, rect:{x:562,y:296,w:138,h:190},
+  desc:'五十座迷你戲院，今日放《重慶森林》修復版。', presence:[],
+  acts:[
+   {l:'買戲票', s:'HK$65 · 心情 +14', a:{type:'pay',amt:65,mood:14,item:'戲票'}}
+  ]},
+ {id:'flower', name:'海棠花店', en:'Hoi Tong Flowers', t:'商店', icon:'flower', x:228, y:496, rect:{x:182,y:310,w:92,h:176},
+  desc:'門外永遠有一桶一桶的洋桔梗同小菊花。', presence:['he'],
+  acts:[
+   {l:'買小盆栽', s:'HK$88 · 心情 +10', a:{type:'pay',amt:88,mood:10,item:'小盆栽'}},
+   {l:'同許家晴傾計', s:'心情 +5', a:{type:'free',mood:5,mins:15,note:'家晴話她最近想做網上花店。'}}
+  ]},
+ {id:'studio', name:'留白設計室', en:'Lau Baa Studio', t:'工作', icon:'pen', x:986, y:496, rect:{x:922,y:302,w:128,h:184},
+  desc:'三個設計師合租的工作室，咖啡機壞咗半年。', presence:[],
+  acts:[
+   {l:'整理作品集', s:'作品 +1 · 設計經驗 +20', a:{type:'free',xp:20,works:1,mins:40,note:'你排好三張海報作品。'}},
+   {l:'睇設計展板', s:'心情 +5', a:{type:'free',mood:5,mins:10,note:'展板上的字體排得很講究。'}}
+  ]},
+ {id:'tea', name:'源記涼茶', en:'Yuen Kee Herbal', t:'食肆', icon:'tea', x:1330, y:232, rect:{x:1292,y:70,w:76,h:152},
+  desc:'廿四味苦到鄰舖都識聞，涼茶舖阿伯話「飲咗就唔病」。', presence:[],
+  acts:[
+   {l:'廿四味', s:'HK$12 · 心情 −1（好苦）', a:{type:'pay',amt:12,mood:-1,item:'廿四味'}}
+  ]},
+ {id:'electronics', name:'鴨寮街電子檔', en:'Apliu St Stall', t:'商店', icon:'chip', x:1424, y:232, rect:{x:1368,y:62,w:112,h:160},
+  desc:'線、充電器、二手耳機，檔主會開價再還一半。', presence:[],
+  acts:[
+   {l:'買充電線', s:'HK$28', a:{type:'pay',amt:28,mood:1,item:'充電線'}},
+   {l:'買二手滑鼠', s:'HK$45', a:{type:'pay',amt:45,mood:2,item:'二手滑鼠'}}
+  ]},
+ {id:'hardware', name:'利群五金', en:'Lee Koon Hardware', t:'商店', icon:'hammer', x:1540, y:232, rect:{x:1480,y:50,w:120,h:172},
+  desc:'螺絲批、燈泡、膠紙，應有盡有。', presence:[],
+  acts:[
+   {l:'買燈泡', s:'HK$22', a:{type:'pay',amt:22,mood:0,item:'燈泡'}}
+  ]},
+ {id:'pawn', name:'德昌大押', en:'Tak Cheong Pawnshop', t:'服務', icon:'coin', x:312, y:496, rect:{x:274,y:300,w:76,h:186},
+  desc:'高高在上的當舖招牌，夜晚燈光會轉色。', presence:[],
+  acts:[
+   {l:'睇吓當舖', s:'心情 +1', a:{type:'free',mood:1,mins:5,note:'當舖嘅霓虹燈今日轉紅色。'}}
+  ]},
+ {id:'exchange', name:'新華找換', en:'Sun Hwa Exchange', t:'服務', icon:'coin', x:1291, y:496, rect:{x:1242,y:298,w:98,h:188},
+  desc:'窗口貼住今日匯率，去旅行前先來呢度格價。', presence:[],
+  acts:[
+   {l:'兌換日圓', s:'HK$500', a:{type:'pay',amt:500,mood:0,item:'兌換日圓'}}
+  ]},
+ {id:'court', name:'福榮街街場', en:'Basketball Court', t:'公共', icon:'ball', x:1380, y:900, rect:{x:1170,y:840,w:430,h:150},
+  desc:'傍晚永遠有波打，落場都唔使約人。', presence:[],
+  acts:[
+   {l:'落場鬥波', s:'心情 +12', a:{type:'free',mood:12,mins:60,note:'你入了一記三分波。'}}
+  ]}
+];
+
+const JOBS = [
+ {id:'cha_waiter', title:'茶餐廳侍應', wage:'HK$70 / 小時', place:'美好茶餐廳', req:'無', taken:false},
+ {id:'store_clerk', title:'便利店店員', wage:'HK$65 / 小時', place:'永興士多', req:'無', taken:false},
+ {id:'barista', title:'咖啡師（現職）', wage:'HK$80 / 小時', place:'好日子咖啡', req:'咖啡經驗 LV1', taken:true},
+ {id:'designer', title:'初級設計助理', wage:'HK$18,000 / 月', place:'留白設計室', req:'作品集 ≥ 3', taken:false}
+];
+
+const ACHV = [
+ {id:'salary', name:'第一份薪水', desc:'收到第一份正式工資', got:false, prog:0, need:1},
+ {id:'friend', name:'街坊好友', desc:'同一位街坊變成朋友', got:false, prog:0, need:1},
+ {id:'savings', name:'小有積蓄', desc:'錢包儲到 HK$5,000', got:false, prog:1280, need:5000},
+ {id:'rising', name:'職場新星', desc:'獲得第一次晉升', got:false, prog:0, need:1},
+ {id:'start', name:'新的開始', desc:'認識三位居民', got:false, prog:2, need:3}
+];
+
+/* 交易種子：期初 1,193 +87 = 1,280，金額完全對賬 */
+let TRANS = [
+ {t:'11-04 09:12', d:'麵包（兩個） · 榮記麵包店', amt:-24},
+ {t:'11-04 18:30', d:'小巴車費 · 小巴總站', amt:-7},
+ {t:'11-05 12:40', d:'午餐·常餐 · 美好茶餐廳', amt:-42},
+ {t:'11-05 20:10', d:'兼職薪金（2小時） · 好日子咖啡', amt:160}
+];
+
+let S = {
+ balance:1280, mood:62, occupation:'咖啡店兼職', jobPlace:'好日子咖啡',
+ time:1122, city:'深水埗', notes:[
+   {t:'11-06 08:10', d:'「唔好再深夜飲奶茶。」—— 但今日返工又飲咗。'},
+   {t:'11-05 22:30', d:'設計師文憑還有八個月報名，錢唔夠。加油。'},
+   {t:'11-05 20:00', d:'收到陳樂言嘅訊息：「收工未？」'}
+ ],
+ met:['lin','chan'], works:1, cafeXP:340, panel:null, feed:[], eventPending:false, dlgDone:false
+};
+
+/* ============================================================
+   ART —— 深水埗像素城市底圖（1600×1000）。可整張換成正式美術資源。
+   ============================================================ */
+const ART = (function(){
+  const W=1600, H=1000;
+  let seed=20261106;
+  function rnd(){seed=(seed*1103515245+12345)&0x7fffffff;return seed/0x7fffffff;}
+  function ri(a,b){return a+Math.floor(rnd()*(b-a+1));}
+  function pick(a){return a[Math.floor(rnd()*a.length)];}
+
+  const WALK='#8f8a7d', WALK2='#87816f', ROAD='#3a3e40', CURB='#c9c2a8';
+  const SPECK=['#41464a','#34383a','#454a4e','#3d4245'];
+  const FACS=[
+   {b:'#a39c90',sh:'#7e776c',lt:'#bab3a6',ln:'#8d867a',rf:'#6f6a61',re:'#968f84'},
+   {b:'#b8ab8f',sh:'#968a70',lt:'#cfc3a6',ln:'#9a8e74',rf:'#7c7262',re:'#a39a86'},
+   {b:'#c8b795',sh:'#a0906c',lt:'#dbcaa7',ln:'#a5946f',rf:'#83765c',re:'#a59880'},
+   {b:'#6c8577',sh:'#52695c',lt:'#85a090',ln:'#5a7264',rf:'#445a50',re:'#68806f'},
+   {b:'#3f6265',sh:'#2e4a4d',lt:'#588084',ln:'#335053',rf:'#274042',re:'#3d5c60'},
+   {b:'#9c5f50',sh:'#7d4a3e',lt:'#b57867',ln:'#875244',rf:'#6a4036',re:'#8a5a4c'},
+   {b:'#b08968',sh:'#8d6c52',lt:'#c7a37e',ln:'#96745a',rf:'#6e5643',re:'#92715a'},
+   {b:'#c9c2b2',sh:'#a0998a',lt:'#ddd6c6',ln:'#a79f8f',rf:'#837d70',re:'#aba494'}
+  ];
+  const SHOPCOL={cha:'#b8342c',store:'#d8c9a3',cafe:'#2f3a3a',siu:'#c8453c',bakery:'#d8b36a',
+   laundry:'#4a7a7e',pharm:'#c8d8d0',book:'#6c5a7a',flower:'#b57d9a',pawn:'#20242a',
+   cinema:'#3a2a3a',community:'#5c8b76',exchange:'#1e3a4a',tea:'#7a2a22',electronics:'#2a2a35',
+   hardware:'#6b6f66',generic:'#8f8a7d',studio:'#e8e2d2',residence:'#9a9484',office:'#3a4a4d'};
+  let ctx; const GLOWS=[];
+  function R(x,y,w,h,c){ctx.fillStyle=c;ctx.fillRect(Math.round(x),Math.round(y),Math.round(w),Math.round(h));}
+
+  function tree(cx,cy,r){
+    R(cx-3,cy+r*2,6,5,'#5a4632');
+    const cols=['#36503b','#43624a','#55775a','#2c4231'];
+    R(cx-r,cy-r*1.4,r*2,r*2.4,cols[0]);
+    R(cx-r+2,cy-r*1.6,r*1.4,r*1.6,cols[1]);
+    R(cx+r-r*0.8,cy-r*1,r*1.2,r*1.2,cols[2]);
+    R(cx-1,cy-r*1.5,3,3,'#6d8560');
+  }
+
+  function building(x,w,top,bottom,pal,style){
+    const p=(typeof pal==='number')?FACS[pal]:pal;
+    const h=bottom-top;
+    R(x-1,bottom,w+2,3,'rgba(0,0,0,.28)');
+    R(x,top,w,h,p.b);
+    R(x,top,2,h,p.lt); R(x+w-2,top,2,h,p.sh);
+    // 樓層線
+    const floors=Math.max(3,Math.round(h/36)), fh=(h-36)/floors;
+    for(let f=1;f<floors;f++){R(x,top+14+f*fh,w,1,p.ln);}
+    // 窗戶（避開地下舖面）
+    const wy=top+14;
+    for(let f=0;f<floors;f++){
+      const fy=wy+f*fh+3;
+      const n=Math.max(2,Math.floor((w-14)/22));
+      for(let i=0;i<n;i++){
+        const wx=x+8+i*22, ww=11;
+        if(wx+ww>x+w-6)break;
+        const lit=rnd()<0.34;
+        R(wx,fy,ww,10,'#1e2422');
+        R(wx+1,fy+1,ww-2,8,lit?pick(['#e8a94f','#f2c06a','#d98e3a']):pick(['#33403e','#3a4443','#2b3634']));
+        if(lit)R(wx+2,fy+2,3,3,'#ffe0a0');
+        if(rnd()<0.28){ R(wx-1,fy+10,ww+2,2,'#5a5f60'); R(wx+1,fy+12,3,1,'#3f4445'); }
+        if(rnd()<0.16){ const cc=pick(['#c8453c','#e8d9b4','#47a99c','#f0b357']);R(wx+1,fy+11,4,5,cc);R(wx+6,fy+11,3,4,pick(['#c8453c','#e8d9b4','#47a99c'])); }
+      }
+    }
+    // 天台
+    R(x,top,w,15,p.rf); R(x,top,w,2,p.re);
+    if(rnd()<0.9){R(x+ri(6,Math.max(8,w-26)),top+2,16,10,'#8d8f88');R(x+ri(6,Math.max(8,w-26)),top+1,16,2,'#b3b6ac');}
+    if(rnd()<0.65){R(x+ri(4,Math.max(6,w-20)),top+3,1,11,'#4a4e50');R(x+ri(4,Math.max(6,w-20)),top+3,2,2,'#c8453c');}
+    if(rnd()<0.5){R(x+ri(4,Math.max(6,w-18)),top+6,14,8,'#7a6a52');R(x+ri(4,Math.max(6,w-18)),top+5,14,2,'#9a8a6a');}
+    if(rnd()<0.45){R(x+4,top+16,3,5,'#d8c9a3');R(x+8,top+16,3,5,'#47a99c');}
+    // 地下舖面
+    const sc=SHOPCOL[style]||SHOPCOL.generic;
+    R(x,bottom-34,w,34,'#1c2224');
+    R(x+2,bottom-33,w-4,11,sc);
+    const gn=ri(3,5);
+    for(let i=0;i<gn;i++){R(x+6+i*Math.floor((w-14)/gn),bottom-32,5,9,'rgba(245,237,216,.85)');}
+    R(x+4,bottom-20,w-8,20,'#2a2220');
+    // 室內燈光
+    if(style==='cafe'||style==='cha'||style==='siu'||style==='cinema'||style==='community'){
+      R(x+5,bottom-19,w-10,16,'rgba(240,180,90,.5)');
+    }
+    if(style==='siu'){for(let i=0;i<4;i++){R(x+10+i*(w-26)/4,bottom-19,4,8,pick(['#a84a2e','#c86a3a','#8a3a22']));}}
+    if(style==='laundry'){for(let i=0;i<3;i++){R(x+8+i*26,bottom-18,10,10,'#cfd8d8');R(x+10+i*26,bottom-16,6,6,'#6a9aa8');}}
+    if(style==='cinema'){for(let i=0;i<Math.floor(w/8);i++){R(x+4+i*8,bottom-34,4,3,pick(['#f0b357','#c8453c','#47a99c']));}R(x+6,bottom-19,14,16,'#7a2a3a');R(x+w-20,bottom-19,14,16,'#2a4a6a');}
+    if(style==='flower'){for(let i=0;i<5;i++){R(x+4+i*Math.floor(w/6),bottom-4,6,6,pick(['#b57d9a','#e8d9b4','#47a99c','#f0b357']));}}
+    if(style==='pawn'){R(x,bottom-20,w,20,'#4a4a50');for(let i=0;i<Math.floor(w/4);i++){R(x+i*4,bottom-20,1,20,'#3a3a40');}}
+    if(style==='tea'||style==='store'){R(x+w-14,bottom-22,10,12,'#7a4a2a');R(x+w-12,bottom-20,6,8,'#c8a05a');}
+    // 油麻地式竹棚（隨機兩棟）
+    if(style==='generic'&&rnd()<0.22){
+      R(x,top+16,w,h-50,'rgba(180,160,106,.16)');
+      for(let bx=x;bx<x+w;bx+=10){R(bx,top+16,1,h-50,'rgba(200,178,120,.5)');}
+      for(let by=top+20;by<bottom-36;by+=18){R(x,by,w,1,'rgba(200,178,120,.4)');}
+    }
+    GLOWS.push({x:x+w/2,y:bottom+8,r:50,c:'rgba(240,180,90,0.17)'});
+  }
+
+  function officeTower(x,w,top,bottom){
+    R(x-1,bottom,w+2,3,'rgba(0,0,0,.3)');
+    R(x,top,w,bottom-top,'#33454a');
+    const floors=Math.floor((bottom-top-20)/26);
+    for(let f=0;f<floors;f++){
+      const fy=top+14+f*26;
+      R(x,fy,w,1,'#243238');
+      for(let i=0;i<6;i++){
+        const gx=x+10+i*(w-24)/6;
+        const lit=rnd()<0.3;
+        R(gx,fy+3,12,16,lit?'#7a9aa8':'#223038');
+        if(lit)R(gx+1,fy+4,4,3,'#a8c8d0');
+      }
+    }
+    R(x,top,w,14,'#243238');
+    R(x+8,top-6,w-16,6,'#2c3e44');
+    R(x+4,bottom-34,w-8,34,'#1a2428');
+    R(x+8,bottom-20,w-16,16,'rgba(140,190,200,.35)');
+    GLOWS.push({x:x+w/2,y:bottom+8,r:40,c:'rgba(160,200,220,0.10)'});
+  }
+
+  function streets(){
+    [[222],[486],[750]].forEach(([y])=>{
+      R(0,y,1600,14,WALK);R(0,y+40,1600,14,WALK2);
+      R(0,y+14,1600,26,ROAD);
+      R(0,y+14,1600,1,CURB);R(0,y+40,1600,1,CURB);
+      for(let i=0;i<260;i++){R(ri(0,1599),y+16+ri(0,23),1,1,pick(SPECK));}
+      for(let x=12;x<1600;x+=36){R(x,y+26,18,2,'rgba(228,222,204,.45)');}
+    });
+    [350,700,1050].forEach(x=>{
+      R(x,0,14,1000,WALK);R(x+40,0,14,1000,WALK2);
+      R(x+14,0,26,1000,ROAD);
+      R(x+14,0,1,1000,CURB);R(x+40,0,1,1000,CURB);
+      for(let i=0;i<200;i++){R(x+15+ri(0,23),ri(0,999),1,1,pick(SPECK));}
+      for(let y=12;y<1000;y+=36){R(x+26,y,2,18,'rgba(228,222,204,.4)');}
+    });
+    // 斑馬線
+    [[350,222],[700,222],[1050,222],[350,486],[700,486],[1050,486],[350,750],[700,750],[1077,750]].forEach(([vx,hy])=>{
+      for(let s=-2;s<=2;s++){R(vx+s*10,hy+16,5,22,'rgba(238,232,214,.8)');}
+    });
+    // 圓環花槽
+    [[377,248],[727,248],[1077,248],[377,512],[727,512],[1077,512],[377,776],[727,776],[1077,776]].forEach(([cx,cy])=>{
+      R(cx-13,cy-13,26,26,'#3a3f3a');R(cx-10,cy-10,20,20,'#4a5f45');
+      tree(cx-3,cy-3,3);tree(cx+5,cy+4,2);
+    });
+    // 路燈
+    [[222],[486],[750]].forEach(([y])=>{
+      [60,180,300,450,620,820,980,1180,1320,1560].forEach(x=>{
+        R(x,y+2,2,12,'#5a6060');R(x-2,y,6,3,'#8a9090');
+        GLOWS.push({x:x,y:y+4,r:22,c:'rgba(255,205,130,0.22)'});
+      });
+    });
+    // 垃圾桶、花盆
+    [[250,234],[560,524],[900,524],[1250,778],[700,234]].forEach(([x,y])=>{R(x,y,5,7,'#3f6265');R(x-1,y-3,7,3,'#4e6b48');});
+  }
+
+  function openArea(){
+    R(0,804,1600,196,'#6b6e64');
+    // 休憩處 0..430
+    R(0,804,430,196,'#75705f');
+    for(let y=812;y<990;y+=12)for(let x=6;x<420;x+=12){R(x,y,2,2,'#6b6656');}
+    R(20,830,150,80,'#46583f');R(270,880,140,90,'#46583f');
+    for(let i=0;i<40;i++){R(22+ri(0,146),832+ri(0,76),2,2,pick(['#3a4c35','#556c48']));R(272+ri(0,136),882+ri(0,86),2,2,pick(['#3a4c35','#556c48']));}
+    tree(110,862,11);tree(40,930,9);tree(340,848,10);
+    R(60,920,26,4,'#8a6a4a');R(62,924,2,6,'#4a4a4a');R(86,920,26,4,'#8a6a4a');R(110,924,2,6,'#4a4a4a');
+    R(360,826,44,8,'#3f6265');R(362,834,2,16,'#4a4a4a');R(400,834,2,16,'#4a4a4a');
+    // 街市 430..700
+    R(430,804,270,196,'#3c4242');
+    for(let i=0;i<60;i++){R(432+ri(0,266),806+ri(0,192),1,1,pick(['#464d4e','#353a3b']));}
+    [450,510,570,630].forEach((sx,i)=>{
+      R(sx,846,52,9,i%2?'#b8342c':'#d8c9a3');
+      for(let s=0;s<5;s++){R(sx+s*10,846,5,9,i%2?'#d8c9a3':'#b8342c');}
+      R(sx+3,855,2,18,'#5a5148');R(sx+47,855,2,18,'#5a5148');
+      R(sx+4,876,44,10,'#6a5a48');
+      for(let g=0;g<8;g++){R(sx+6+g*5,878,3,3,pick(['#c85a3a','#e8a03a','#6a9a4a','#d8d8d8']));}
+      R(sx+26,838,3,3,'#f2c06a');
+    });
+    GLOWS.push({x:565,y:870,r:40,c:'rgba(240,180,90,0.12)'});
+    // 小巴總站 700..1010
+    R(700,804,310,196,'#6b7070');
+    R(716,826,150,9,'#9aa2a0');R(720,835,2,20,'#5a6060');R(862,835,2,20,'#5a6060');
+    R(716,838,10,26,'#123a3f');
+    for(let t=0;t<3;t++){R(718,840+t*8,6,2,'#f0e4c8');}
+    // 綠色小巴
+    R(740,886,50,17,'#3a7a4a');R(740,886,50,5,'#e8e2d2');
+    R(746,892,10,7,'#9ac0c8');R(760,892,10,7,'#9ac0c8');R(774,892,8,7,'#9ac0c8');
+    R(748,903,7,5,'#22262a');R(776,903,7,5,'#22262a');R(792,890,5,9,'#c8453c');
+    // 紅色小巴
+    R(830,916,52,17,'#a8342c');R(830,916,52,5,'#e8e2d2');
+    R(837,922,10,7,'#9ac0c8');R(851,922,10,7,'#9ac0c8');R(865,922,8,7,'#9ac0c8');
+    R(838,933,7,5,'#22262a');R(866,933,7,5,'#22262a');
+    // 地鐵入口 1010..1170
+    R(1010,804,160,196,'#6b7070');
+    R(1036,872,64,44,'#161c1e');
+    for(let s=0;s<5;s++){R(1040,878+s*8,56,2,'#3a4448');}
+    R(1030,862,84,9,'#7c8585');R(1034,871,2,14,'#5a6060');R(1112,871,2,14,'#5a6060');
+    R(1122,846,18,52,'#123a3f');R(1124,848,14,3,'#f0e4c8');R(1124,854,14,3,'#f0e4c8');R(1124,860,14,3,'#f0e4c8');R(1124,866,14,3,'#f0e4c8');
+    // 籃球場 1170..1600
+    R(1180,830,410,150,'#2e5a4e');
+    R(1180,830,410,150,'rgba(238,232,214,.7)');R(1183,833,404,144,'#2e5a4e');
+    R(1388,892,36,36,'#2e5a4e');R(1386,890,40,40,'rgba(238,232,214,.5)');R(1390,894,32,32,'#2e5a4e');
+    R(1396,900,4,16,'rgba(238,232,214,.5)'); R(1240,900,120,2,'rgba(238,232,214,.4)');
+    R(1180,822,410,7,'#8a4a3e');
+    // 圍網柱
+    for(let x=1184;x<1588;x+=24){R(x,822,2,10,'#6a3a32');}
+    // 場上兩個小人（靜態）
+    R(1340,900,4,6,'#c8453c');R(1341,894,2,4,'#e8b98a');
+    R(1440,920,4,6,'#3f6265');R(1441,914,2,4,'#d9a878');
+  }
+
+  function puddles(){
+    const spots=[[120,250],[500,256],[900,250],[1300,256],[300,518],[850,522],[1250,518],[200,786],[700,790],[1400,786]];
+    spots.forEach(([x,y])=>{
+      R(x,y,ri(14,26),ri(5,8),'#4a5658');
+      R(x+3,y+1,ri(6,10),2,'#6d7e80');
+      R(x+4,y+2,2,4,'rgba(240,180,90,.18)');
+    });
+  }
+
+  function paint(cv){
+    const off=document.createElement('canvas');off.width=W;off.height=H;
+    ctx=off.getContext('2d');ctx.imageSmoothingEnabled=false;
+    R(0,0,W,H,'#1c2224');
+    streets();
+    // 建築後巷底色（避免樓頂與街道之間出現黑縫）
+    R(0,0,1600,222,'#33373a'); R(0,276,1600,210,'#33373a'); R(0,540,1600,210,'#33373a');
+    // Row A（底 222）
+    building(0,168,36,222,1,'cha');building(168,96,42,222,0,'store');building(264,86,26,222,2,'bakery');
+    building(404,118,52,222,5,'siu');building(522,92,44,222,3,'laundry');building(614,86,32,222,2,'pharm');
+    building(754,152,64,222,7,'cafe');building(906,144,46,222,6,'book');
+    building(1104,188,14,222,1,'residence');building(1292,76,70,222,4,'tea');
+    building(1368,112,62,222,0,'electronics');building(1480,120,50,222,4,'hardware');
+    // Row B（底 486）
+    building(0,182,304,486,3,'generic');building(182,92,310,486,2,'flower');building(274,76,300,486,6,'pawn');
+    building(404,158,286,486,1,'generic');building(562,138,296,486,5,'cinema');
+    building(754,168,308,486,0,'generic');building(922,128,302,486,7,'studio');
+    building(1104,138,310,486,2,'generic');building(1242,98,298,486,3,'exchange');
+    building(1340,118,306,486,1,'generic');building(1458,142,290,486,6,'generic');
+    // Row C（底 750）
+    building(0,168,582,750,3,'generic');building(168,104,574,750,2,'community');building(272,78,590,750,0,'generic');
+    officeTower(404,178,544,750);
+    building(582,118,578,750,1,'generic');building(754,152,568,750,4,'generic');building(906,144,580,750,2,'generic');
+    building(1104,132,572,750,6,'generic');building(1236,116,564,750,3,'generic');
+    building(1352,118,578,750,5,'generic');building(1470,130,560,750,1,'generic');
+    openArea();
+    puddles();
+    // 黃昏色罩
+    ctx.globalCompositeOperation='source-over';
+    R(0,0,W,H,'rgba(26,42,56,0.14)');
+    // 燈光
+    ctx.globalCompositeOperation='lighter';
+    GLOWS.forEach(g=>{
+      const gr=ctx.createRadialGradient(g.x,g.y,2,g.x,g.y,g.r);
+      gr.addColorStop(0,g.c);gr.addColorStop(1,'rgba(0,0,0,0)');
+      ctx.fillStyle=gr;ctx.fillRect(g.x-g.r,g.y-g.r,g.r*2,g.r*2);
+    });
+    // 地面暖光倒影
+    [[84,240],[830,240],[565,880],[493,760],[180,880]].forEach(([x,y])=>{R(x-1,y,2,16,'rgba(240,180,90,.10)');});
+    ctx.globalCompositeOperation='source-over';
+    return off;
+  }
+  return {W,H,paint};
+})();
+/* ============================================================
+   APP —— 相機、標記、面板、行為、社交模擬（本地 Mock）
+   ============================================================ */
+const $=id=>document.getElementById(id);
+const world=$('world'), stage=$('stage'), cv=$('art'), ctx=cv.getContext('2d');
+ctx.imageSmoothingEnabled=false;
+const off=ART.paint();
+
+/* ---------- 相機 ---------- */
+let cam={x:0,y:0,z:1}, tween=null;
+function clampCam(){
+  const vw=innerWidth, vh=innerHeight, mW=1600*cam.z, mH=1000*cam.z;
+  cam.x=vw>=mW?(vw-mW)/2:Math.min(0,Math.max(vw-mW,cam.x));
+  cam.y=vh>=mH?(vh-mH)/2:Math.min(0,Math.max(vh-mH,cam.y));
+}
+function fitCam(){ cam.z=Math.max(innerWidth/1600, innerHeight/1000); clampCam(); applyCam(); }
+function applyCam(){
+  world.style.transform=`translate(${cam.x}px,${cam.y}px) scale(${cam.z})`;
+  world.style.setProperty('--inv',(1/cam.z).toFixed(3));
+}
+/* 拖曳 / 縮放 */
+let drag=null;
+stage.addEventListener('mousedown',e=>{ if(e.target.closest('.mk')||e.target.closest('button'))return;
+  drag={sx:e.clientX,sy:e.clientY,x:cam.x,y:cam.y,moved:false}; stage.classList.add('drag'); });
+addEventListener('mousemove',e=>{ if(!drag)return;
+  const dx=e.clientX-drag.sx, dy=e.clientY-drag.sy;
+  if(Math.abs(dx)+Math.abs(dy)>4)drag.moved=true;
+  cam.x=drag.x+dx; cam.y=drag.y+dy; clampCam(); applyCam(); });
+addEventListener('mouseup',e=>{ if(!drag)return; stage.classList.remove('drag');
+  if(!drag.moved){ // 點中人物？
+    const w=screenToWorld(e.clientX,e.clientY);
+    for(const a of actAgents){ if(Math.hypot(a.x-w.x,a.y-w.y)<13){ openProfile(a.id); } }
+  } drag=null; });
+stage.addEventListener('wheel',e=>{ e.preventDefault();
+  const rect=stage.getBoundingClientRect(), mx=e.clientX-rect.left, my=e.clientY-rect.top;
+  const nz=Math.min(3.2,Math.max(Math.max(innerWidth/1600,innerHeight/1000),cam.z*(e.deltaY<0?1.14:0.88)));
+  cam.x=mx-(mx-cam.x)*(nz/cam.z); cam.y=my-(my-cam.y)*(nz/cam.z);
+  cam.z=nz; clampCam(); applyCam(); },{passive:false});
+function screenToWorld(sx,sy){ const r=stage.getBoundingClientRect();
+  return {x:(sx-r.left-cam.x)/cam.z, y:(sy-r.top-cam.y)/cam.z}; }
+
+/* ---------- 豎招牌（DOM） ---------- */
+const SIGNS=[
+ ['美好茶餐廳',140,76,'#b8342c','#f5edd8'],['永興士多',244,82,'#d8c9a3','#6a4a2a'],
+ ['榮記麵包店',326,66,'#d8b36a','#5a3a1a'],['金禾燒味',500,92,'#c8453c','#f5edd8'],
+ ['順發洗衣',592,84,'#4a7a7e','#f5edd8'],['安和藥房',676,72,'#c8d8d0','#1e4a44'],
+ ['好日子咖啡',880,104,'#2f3a3a','#f0b357'],['街角書店',1024,86,'#6c5a7a','#f5edd8'],
+ ['華安大廈',1264,54,'#9a9484','#1c2a27'],['源記涼茶',1344,110,'#7a2a22','#f5edd8'],
+ ['海棠花店',250,350,'#b57d9a','#f5edd8'],['德昌大押',326,340,'#20242a','#e8c86a'],
+ ['電影放映室',674,336,'#3a2a3a','#f0b357'],['留白設計室',1024,342,'#e8e2d2','#2f3a3a'],
+ ['協成商業中心',556,584,'#3a4a4d','#e8e2d2'],['社區中心',246,614,'#5c8b76','#f5edd8']
+];
+SIGNS.forEach(([t,x,y,c,tc])=>{
+  const d=document.createElement('div'); d.className='hksign'; d.textContent=t;
+  d.style.left=x+'px'; d.style.top=y+'px'; d.style.background=c; d.style.color=tc;
+  d.style.animation=`flicker${(t.length%3)+1} 4s infinite`;
+  $('signLayer').appendChild(d);
+});
+
+/* ---------- 地點標記 ---------- */
+LOC.forEach(l=>{
+  const b=document.createElement('button'); b.className='mk'; b.dataset.id=l.id;
+  b.style.left=l.x+'px'; b.style.top=l.y+'px';
+  b.innerHTML=`<span class="dot">${ic(l.icon)}</span><span class="lab">${l.name}</span>`;
+  b.addEventListener('click',e=>{e.stopPropagation(); openLocation(l.id);});
+  b.addEventListener('mouseenter',()=>{ S.hoverLoc=l.id; showTip(l); });
+  b.addEventListener('mouseleave',()=>{ S.hoverLoc=null; hideTip(); });
+  $('markerLayer').appendChild(b);
+});
+function showTip(l){ const t=$('tip'); t.innerHTML=`<b>${l.name}</b>（${l.t}）<br><span style="color:#5a6a66">${l.desc.slice(0,36)}…</span>`;
+  const r=stage.getBoundingClientRect(); const mx=l.x*cam.z+cam.x+r.left, my=l.y*cam.z+cam.y+r.top;
+  t.style.left=Math.min(innerWidth-240,mx)+'px'; t.style.top=Math.max(70,my-70)+'px'; t.classList.add('show'); }
+function hideTip(){ $('tip').classList.remove('show'); }
+
+/* ---------- 人物像素圖 ---------- */
+function drawAvatar(cv,a){
+  const c=cv.getContext('2d'); c.imageSmoothingEnabled=false; c.clearRect(0,0,cv.width,cv.height);
+  const s=cv.width/24; const P=(x,y,w,h,col)=>{c.fillStyle=col;c.fillRect(Math.round(x*s),Math.round(y*s),Math.round(w*s),Math.round(h*s));};
+  P(0,0,24,24,'#12282a'); P(5,5,14,14,'#1c3a38'); P(11,11,8,8,'#1c3a38');
+  P(7,5,10,4,a.hair); P(6,9,2,7,a.hair); P(16,9,2,7,a.hair);
+  P(8,9,8,7,a.skin);
+  P(10,12,1.4,1.6,'#1a1a1a'); P(12.6,12,1.4,1.6,'#1a1a1a');
+  P(11,14.6,2,0.9,a.accent);
+  P(8,16.5,8,5.5,a.shirt); P(10.5,16.5,3,5.5,a.accent);
+}
+drawAvatar($('portrait'),AGENTS[0]);
+
+/* ---------- 行為：居民 + 路人 + 車 ---------- */
+const actAgents=[
+ {x:830,y:230,path:[[830,230,4],[838,232,4],[824,231,4]],pi:0,wait:2,a:AGENTS[0],bob:0},
+ {x:905,y:258,path:[[905,258,6],[830,230,24]],pi:0,wait:0,a:AGENTS[1],bob:0},
+ {x:228,y:496,path:[[228,496,10],[180,880,14],[228,496,10]],pi:0,wait:0,a:AGENTS[2],bob:0}
+];
+const walkers=Array.from({length:11},(_,i)=>({
+  x:Math.random()*1600, y:[233,268,497,533,757,800][i%6], d:i%2?1:-1,
+  sp:8+Math.random()*7, col:['#c8453c','#3f6265','#b57d6a','#d8b36a','#6c8577'][i%5], bob:Math.random()*10
+}));
+const buses=[
+ {x:200,y:245,d:-1,sp:13,body:'#3a7a4a'}, {x:900,y:256,d:1,sp:17,body:'#a8342c'},
+ {x:400,y:509,d:1,sp:23,body:'#b03a32'}, {x:1300,y:781,d:-1,sp:15,body:'#d8d8d8'}
+];
+function drawFig(c,x,y,shirt,phase){
+  c.fillStyle='rgba(0,0,0,.3)'; c.fillRect(x-3,y+9,8,2);
+  c.fillStyle='#2b2320'; c.fillRect(x-1,y-2,5,3);
+  c.fillStyle='#e8b98a'; c.fillRect(x,y+1,4,4);
+  c.fillStyle=shirt; c.fillRect(x-1,y+5,6,4);
+  c.fillStyle='#2a2a30';
+  if(phase){c.fillRect(x-1,y+9,2,2);c.fillRect(x+2,y+9,2,1.6);}else{c.fillRect(x-1,y+9,2,1.6);c.fillRect(x+2,y+9,2,2);}
+}
+function frame(t){
+  ctx.drawImage(off,0,0);
+  // 選中/懸停高亮
+  const hl=S.selLoc||S.hoverLoc;
+  if(hl){ const L=LOC.find(l=>l.id===hl); if(L&&L.rect){
+    ctx.strokeStyle=S.selLoc===hl?'#f0b357':'rgba(242,230,200,.55)'; ctx.lineWidth=2;
+    ctx.setLineDash(S.selLoc===hl?[6,4]:[4,4]);
+    ctx.strokeRect(L.rect.x-2,L.rect.y-2,L.rect.w+4,L.rect.h+4);
+    ctx.setLineDash([]);
+  }}
+  // 社交事件脈衝
+  if(S.eventPending){ const L=LOC.find(l=>l.id==='cafe'); const p=(t/400)%1;
+    ctx.strokeStyle=`rgba(240,177,84,${0.8*(1-p)})`; ctx.lineWidth=2;
+    ctx.beginPath(); ctx.arc(L.x,L.y,10+p*18,0,7); ctx.stroke(); }
+  // 車
+  buses.forEach(b=>{ b.x+=b.sp*b.d/30; if(b.d>0&&b.x>1660)b.x=-60; if(b.d<0&&b.x<-60)b.x=1660;
+    ctx.fillStyle='rgba(0,0,0,.3)'; ctx.fillRect(b.x-1,b.y+11,36,3);
+    ctx.fillStyle=b.body; ctx.fillRect(b.x,b.y,34,11);
+    ctx.fillStyle='#e8e2d2'; ctx.fillRect(b.x,b.y,34,3);
+    for(let i=0;i<3;i++){ctx.fillStyle='#9ac0c8';ctx.fillRect(b.x+3+i*9,b.y+4,7,4);}
+    ctx.fillStyle='#22262a'; ctx.fillRect(b.x+5,b.y+9,6,3); ctx.fillRect(b.x+23,b.y+9,6,3); });
+  // 路人
+  walkers.forEach(w=>{ w.x+=w.sp*w.d/30; if(w.x>1640)w.x=-30; if(w.x<-30)w.x=1640;
+    drawFig(ctx,w.x,w.y,w.col,Math.floor(t/300+w.bob)%2); });
+  // 居民
+  actAgents.forEach(a=>{
+    const wp=a.path[a.pi];
+    if(a.wait>0){ a.wait-=1/30; }
+    else { const dx=wp[0]-a.x, dy=wp[1]-a.y, d=Math.hypot(dx,dy);
+      if(d<3){ a.x=wp[0]; a.y=wp[1]; a.wait=wp[2];
+        if(a.a.id==='chan'&&!S.eventPending&&!S.dlgDone){ triggerSocialEvent(); }
+        a.pi=(a.pi+1)%a.path.length; }
+      else { a.x+=dx/d*0.5; a.y+=dy/d*0.5; } }
+    drawFig(ctx,a.x,a.y,a.a.shirt,Math.floor(t/250)%2);
+    ctx.font='bold 9px "Microsoft JhengHei"'; ctx.textAlign='center';
+    ctx.strokeStyle='rgba(0,0,0,.85)'; ctx.lineWidth=3; ctx.strokeText(a.a.name,a.x+3,a.y-4);
+    ctx.fillStyle='#f2e6c8'; ctx.fillText(a.a.name,a.x+3,a.y-4);
+  });
+  requestAnimationFrame(frame);
+}
+
+/* ---------- Toast / Feed ---------- */
+let toastT;
+function toast(msg){ const el=$('toast'); el.textContent=msg; el.classList.add('show');
+  clearTimeout(toastT); toastT=setTimeout(()=>el.classList.remove('show'),2200); }
+function addEvent(text,icon,ev){
+  const h=Math.floor(S.time/60), m=String(S.time%60).padStart(2,'0');
+  S.feed.unshift({t:`${h}:${m}`,text,ev:!!ev});
+  if(S.feed.length>10)S.feed.pop();
+  renderFeed();
+}
+function renderFeed(){
+  $('feedList').innerHTML=S.feed.slice(0,9).map(e=>
+    `<div class="ev ${e.ev?'pulseev':''}" ${e.ev?'style="cursor:pointer"':''}>
+      <span class="t">${e.t}</span><span>${e.text}</span></div>`).join('');
+  document.querySelectorAll('.ev.pulseev').forEach(el=>el.addEventListener('click',()=>openDialogue()));
+}
+const AUTOPOOL=[
+ '陳樂言喺協成商業中心加班，電腦屏幕仲亮住。',
+ '許家晴收咗舖，買咗一枝白玫瑰送自己。',
+ '福榮街街市阿珍姐開始洗地，準備收檔。',
+ '一部綠色小巴埋站，落咗三個街坊。',
+ '留白設計室仲有人改稿，上層嘅燈仲亮住。',
+ '街邊水窪映住霓虹燈，雨細細咁落緊。'
+];
+let autoIdx=0;
+setInterval(()=>{ if(document.hidden)return;
+  addEvent(AUTOPOOL[autoIdx%AUTOPOOL.length]); autoIdx++; },20000);
+
+/* ---------- 成就 ---------- */
+function unlockAchv(id){ const a=ACHV.find(x=>x.id===id); if(a.got)return;
+  a.got=true; toast(`解鎖成就：${a.name}`); addEvent(`解鎖成就「${a.name}」。`); }
+
+/* ---------- 面板 ---------- */
+function openPanel(type,arg){
+  S.panel={type,arg}; document.body.classList.add('panel-open');
+  $('panel').classList.add('open'); renderPanel();
+}
+function closePanel(){ S.panel=null; $('panel').classList.remove('open'); document.body.classList.remove('panel-open'); }
+$('panelClose').addEventListener('click',closePanel);
+
+function renderPanel(){
+  const p=S.panel; if(!p)return;
+  const head=$('panelHead')||null;
+  if(p.type==='loc'){ const l=LOC.find(x=>x.id===p.arg); S.selLoc=l.id;
+    const av=l.presence.map(id=>{const a=AGENTS.find(x=>x.id===id);
+      return `<span class="wchip"><canvas width="26" height="26"></canvas>${a.name}</span>`;}).join('');
+    $('panelIc').innerHTML=ic(l.icon); $('panelTitle').textContent=l.name; $('panelEn').textContent=l.en;
+    $('panelBody').innerHTML=`
+      <div class="desc">${l.desc}</div>
+      <div class="who">${av||'<span style="font-size:11px;color:var(--faint)">暫時冇街坊喺度</span>'}</div>
+      ${l.acts.map((a,i)=>`
+        <div class="row">
+          <div class="ri">${ic(a.a.type==='earn'?'brief':(a.a.type==='pay'?'coin':(a.a.type==='chat'?'people':'cup')))}</div>
+          <div class="rm"><b>${a.l}</b><span>${a.s}</span></div>
+          <button class="do" data-act="${i}">去做</button>
+        </div>`).join('')}`;
+    l.presence.forEach((id,i)=>{const a=AGENTS.find(x=>x.id===id);
+      const c=$('panelBody').querySelectorAll('.wchip canvas')[i]; if(c)drawAvatar(c,a);});
+    $('panelBody').querySelectorAll('[data-act]').forEach(b=>b.addEventListener('click',()=>doAct(l,l.acts[+b.dataset.act])));
+    document.querySelectorAll('.mk').forEach(m=>m.classList.toggle('sel',m.dataset.id===l.id));
+  }
+  else if(p.type==='residents'){
+    $('panelIc').innerHTML=ic('people'); $('panelTitle').textContent='街坊'; $('panelEn').textContent='Residents · Agents';
+    $('panelBody').innerHTML=AGENTS.map(a=>`
+      <div class="row" style="cursor:pointer" data-ag="${a.id}">
+        <div class="ri"><canvas width="30" height="30"></canvas></div>
+        <div class="rm"><b>${a.name} · ${a.age}歲</b><span>${a.job} · 而家${locName(a.locId)}</span></div>
+        <button class="do ghost">資料</button>
+      </div>`).join('')+`<div class="desc" style="margin-top:10px">佢哋會自己返工、買嘢、約朋友。你喺地圖上見到嘅小人就係佢哋。</div>`;
+    $('panelBody').querySelectorAll('[data-ag]').forEach((r,i)=>{
+      drawAvatar(r.querySelector('canvas'),AGENTS[i]);
+      r.addEventListener('click',()=>openProfile(r.dataset.ag)); });
+  }
+  else if(p.type==='profile'){ const a=AGENTS.find(x=>x.id===p.arg);
+    $('panelIc').innerHTML=ic('people'); $('panelTitle').textContent=a.name; $('panelEn').textContent=a.job;
+    $('panelBody').innerHTML=`
+      <div class="profhead"><canvas width="64" height="64"></canvas>
+        <div><h3>${a.name}</h3><div class="sub">${a.age}歲 · ${a.job}</div></div></div>
+      <div class="kv"><span>而家位置</span><b>${locName(a.locId)}</b></div>
+      <div class="kv"><span>心情</span><b>${a.mood}</b></div>
+      <div class="kv"><span>個人目標</span><b style="font-weight:400">${a.asp}</b></div>
+      <div style="margin-top:10px"><span style="font-size:11px;color:var(--faint)">關係</span><br>
+        ${a.friends.map(f=>{const o=AGENTS.find(x=>x.id===f.id);return `<span class="relchip">${o.name} · ${f.rel}</span>`;}).join('')}</div>
+      <div style="margin-top:12px"><span style="font-size:11px;color:var(--faint)">最近動態</span>
+        <div class="desc" style="margin:6px 0">• ${[].concat(a.recent).join('<br>• ')}</div></div>`;
+    drawAvatar($('panelBody').querySelector('.profhead canvas'),a);
+  }
+  else if(p.type==='career'){
+    $('panelIc').innerHTML=ic('brief'); $('panelTitle').textContent='工作'; $('panelEn').textContent='Career';
+    $('panelBody').innerHTML=`
+      <div class="stat3">
+        <div class="stat"><b style="font-size:14px">${S.occupation}</b><span>現職</span></div>
+        <div class="stat"><b>HK$80</b><span>現職時薪</span></div>
+        <div class="stat"><b>${S.cafeXP}/600</b><span>咖啡師經驗</span></div>
+      </div>
+      <div class="bar"><i style="width:${Math.min(100,S.cafeXP/6)}%"></i></div>
+      <div class="barlbl"><span>咖啡師等級 LV2</span><span>再${600-S.cafeXP}XP升LV3</span></div>
+      <div class="desc">今日可返工時段 17:00–22:00 · 場地：好日子咖啡</div>
+      ${JOBS.map(j=>`
+        <div class="row">
+          <div class="ri">${ic('brief')}</div>
+          <div class="rm"><b>${j.title}</b><span>${j.place} · ${j.wage} · 需求：${j.req}</span></div>
+          <button class="do ${j.taken?'ghost':''}" data-job="${j.id}">${j.taken?'現職':'應徵'}</button>
+        </div>`).join('')}`;
+    $('panelBody').querySelectorAll('[data-job]').forEach(b=>b.addEventListener('click',()=>applyJob(b.dataset.job)));
+  }
+  else if(p.type==='wealth'){
+    const inc=TRANS.filter(t=>t.amt>0).reduce((s,t)=>s+t.amt,0);
+    const exp=-TRANS.filter(t=>t.amt<0).reduce((s,t)=>s+t.amt,0);
+    $('panelIc').innerHTML=ic('coin'); $('panelTitle').textContent='財富'; $('panelEn').textContent='Wealth';
+    $('panelBody').innerHTML=`
+      <div class="desc">錢包餘額</div>
+      <div class="bigbal">HK$${S.balance.toLocaleString()}</div>
+      <div class="stat3">
+        <div class="stat"><b>1,193</b><span>期初</span></div>
+        <div class="stat"><b class="plus" style="color:var(--good)">+${inc}</b><span>近7日收入</span></div>
+        <div class="stat"><b style="color:var(--bad)">-${exp}</b><span>近7日支出</span></div>
+      </div>
+      <div class="bar"><i style="width:${Math.min(100,S.balance/5000*100)}%"></i></div>
+      <div class="barlbl"><span>儲蓄目標 HK$5,000</span><span>${S.balance.toLocaleString()} / 5,000</span></div>
+      <div class="kv"><span>租金（華安大廈 5樓）</span><b>HK$3,200 / 月</b></div>
+      <div class="kv"><span>八達通</span><b>HK$86.4</b></div>
+      <div style="margin-top:12px;font-size:11px;color:var(--faint)">最近交易</div>
+      ${TRANS.slice(0,8).map(t=>`
+        <div class="kv" style="border:0;padding:5px 0">
+          <span style="font-family:var(--mono);font-size:11px">${t.t}</span>
+          <span style="flex:1;margin:0 10px">${t.d}</span>
+          <b class="money ${t.amt>0?'plus':'minus'}">${t.amt>0?'+':''}${t.amt}</b>
+        </div>`).join('')}`;
+  }
+  else if(p.type==='achv'){
+    $('panelIc').innerHTML=ic('coin'); $('panelTitle').textContent='成就'; $('panelEn').textContent='Achievements';
+    $('panelBody').innerHTML=ACHV.map(a=>{
+      const prog=a.id==='savings'?Math.min(S.balance,a.need):(a.id==='start'?Math.min(S.met.length,a.need):(a.prog||0));
+      const pct=Math.min(100,prog/a.need*100);
+      return `<div class="ach ${a.got?'done':''}">
+        <div class="aico">${ic(a.got?'coin':'ball')}</div>
+        <div class="am"><b>${a.name}</b><p>${a.desc}</p>
+          <div class="bar" style="margin-top:4px"><i style="width:${pct}%"></i></div></div>
+        <span class="ast">${a.got?'已達成':prog+'/'+a.need}</span></div>`;}).join('');
+  }
+  else if(p.type==='guide'){
+    $('panelIc').innerHTML=ic('pin'); $('panelTitle').textContent='示範流程'; $('panelEn').textContent='Demo Script';
+    $('panelBody').innerHTML=`<div class="desc">五分鐘試玩路線（投影示戲用）：</div>`+
+      ['見到深水埗像素城市（拖曳、滾輪縮放）',
+       '點「好日子咖啡」標記 → 查看工作地點',
+       '做「上一個三小時輪班」→ +HK$240（1,280→1,520）',
+       '打開「財富」確認餘額與交易',
+       '返回城市，見到咖啡店脈衝提示',
+       '點街坊動態 → 打開陳樂言對話',
+       '打開「人物」查看關係',
+       '點「手機」開啟浮層，再關閉',
+       '點「附身」輸入「直接邀請陳樂言去看電影」',
+       '打開「成就」查看進度'].map((s,i)=>
+        `<div class="kv" style="border:0"><span style="font-family:var(--mono);color:var(--amber)">${i+1}.</span><b style="font-weight:400">${s}</b></div>`).join('');
+  }
+}
+function locName(id){ const l=LOC.find(x=>x.id===id); return l?l.name:'街上'; }
+function openLocation(id){ openPanel('loc',id); }
+function openProfile(id){ openPanel('profile',id); }
+
+/* ---------- 行為 ---------- */
+function addMood(n){ S.mood=Math.max(5,Math.min(100,S.mood+n)); syncHUD(); }
+function advanceTime(m){ S.time=(S.time+(m||10))%1440; syncHUD(); }
+function fmtT(){ const d=new Date(); return `${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')} ${String(Math.floor(S.time/60)).padStart(2,'0')}:${String(S.time%60).padStart(2,'0')}`; }
+
+function doAct(loc,a){
+  const act=a.a;
+  if(act.type==='pay'){
+    if(S.balance<act.amt){ toast('餘額不足，先去返工賺錢'); return; }
+    S.balance-=act.amt;
+    TRANS.unshift({t:fmtT(),d:act.item+' · '+loc.name,amt:-act.amt});
+    addMood(act.mood); advanceTime(act.mins);
+    toast(`−HK$${act.amt} · ${act.item}`);
+    addEvent(`你在${loc.name}買咗「${act.item}」。`);
+  }
+  else if(act.type==='earn'){
+    S.balance+=act.amt; S.cafeXP+=90;
+    TRANS.unshift({t:fmtT(),d:act.item+'（'+act.hours+'小時） · 薪金',amt:act.amt});
+    advanceTime(act.mins); addMood(4);
+    toast(`+HK$${act.amt} 薪金已到賬`);
+    addEvent(`${act.item}收工，賺咗 HK$${act.amt}。`);
+    unlockAchv('salary');
+    triggerSocialEvent();
+  }
+  else if(act.type==='free'){
+    addMood(act.mood); advanceTime(act.mins); if(act.xp)S.cafeXP+=act.xp; if(act.works)S.works+=act.works;
+    toast(act.note||'完成。');
+    if(act.meet)meetAgent(act.meet);
+  }
+  else if(act.type==='note'){
+    S.notes.unshift({t:fmtT(),d:act.note||'（今日都係普通又真實的一天。）'});
+    addMood(act.mood||0); toast('日記已存入手機。');
+  }
+  else if(act.type==='open'){ openPanel(act.target); }
+  else if(act.type==='chat'){ openDialogue(); }
+  syncHUD(); if(S.panel)renderPanel();
+}
+function meetAgent(id){
+  if(S.met.includes(id))return;
+  S.met.push(id); const a=AGENTS.find(x=>x.id===id);
+  toast(`認識了${a.name}`); addEvent(`你同${a.name}交換咗手機號碼。`);
+  const st=ACHV.find(x=>x.id==='start'); st.prog=Math.min(3,S.met.length);
+  if(S.met.length>=3)unlockAchv('start');
+}
+function applyJob(id){
+  const j=JOBS.find(x=>x.id===id);
+  if(j.taken){ toast('你已經做緊呢份工'); return; }
+  if(id==='designer'&&S.works<3){ toast(`作品集不足（${S.works}/3），先去留白設計室整理作品`); return; }
+  if(id==='designer'){ S.occupation='初級設計助理'; S.jobPlace='留白設計室'; unlockAchv('rising'); toast('面試通過！下週一返新工'); }
+  else { toast(`已登記應徵「${j.title}」，老闆叫你試工`); }
+  syncHUD(); renderPanel();
+}
+
+/* ---------- 社交事件 ---------- */
+const DLG=[
+ ['chan','知夏，你今日成個晏晝都喺度沖咖啡，手勢愈來愈熟喎。'],
+ ['lin','係呀……不過企足三個鐘，腳都唔係自己嘅。'],
+ ['chan','我啱啱喺公司俾人改咗三次稿，我而家只想食碗叉燒飯。'],
+ ['lin','（笑）咁啱，我收工都想去茶記。'],
+ ['chan','不如一齊？我請你飲奶茶。']
+];
+let dlgIdx=0;
+function triggerSocialEvent(){
+  if(S.eventPending||S.dlgDone)return;
+  S.eventPending=true;
+  addEvent('陳樂言想和林知夏聊聊最近發生的事。',null,true);
+  document.querySelector('.mk[data-id="cafe"]')?.classList.add('pulse');
+}
+function openDialogue(){
+  S.eventPending=false;
+  document.querySelectorAll('.mk.pulse').forEach(m=>m.classList.remove('pulse'));
+  dlgIdx=0; $('dlg').classList.add('open');
+  $('dlgWhere').textContent='好日子咖啡 · '+Math.floor(S.time/60)+':'+String(S.time%60).padStart(2,'0');
+  renderDlg();
+}
+function renderDlg(){
+  const [who,line]=DLG[dlgIdx];
+  const a=AGENTS.find(x=>x.id===who);
+  drawAvatar($('dlgAvatar1'),a);
+  $('dlgName').textContent=a.name;
+  $('dlgSay').textContent=line;
+  $('dlgNext').textContent=dlgIdx<DLG.length-1?'繼續傾':'完結';
+}
+$('dlgNext').addEventListener('click',()=>{
+  if(dlgIdx<DLG.length-1){ dlgIdx++; renderDlg(); }
+  else { $('dlg').classList.remove('open'); S.dlgDone=true;
+    unlockAchv('friend'); addEvent('知夏同樂言一齊去咗美好茶餐廳。'); }
+});
+$('dlgClose').addEventListener('click',()=>$('dlg').classList.remove('open'));
+$('dlgRel').addEventListener('click',()=>openProfile('chan'));
+$('dlgPossess').addEventListener('click',()=>{ $('dlg').classList.remove('open'); openPossess(); });
+
+/* ---------- 附身 ---------- */
+function openPossess(){ $('possessOv').classList.add('open');
+  $('possChips').innerHTML=['直接邀請陳樂言去看電影。','同佢講今日好攰，改日再約。','問佢公司係咪好煩。']
+    .map(c=>`<button data-c="${c}">${c}</button>`).join('');
+  $('possChips').querySelectorAll('button').forEach(b=>b.addEventListener('click',()=>$('possInput').value=b.dataset.c));
+}
+$('possCancel').addEventListener('click',()=>{$('possessOv').classList.remove('open');$('possReaction').classList.remove('show');});
+$('possSubmit').addEventListener('click',()=>{
+  const v=$('possInput').value.trim(); if(!v){toast('寫一句想講的話先');return;}
+  let r;
+  if(v.includes('電影')) r='知夏（面紅）：「等一下！我還沒想好怎麼開口呢！」';
+  else if(v.includes('攰')||v.includes('改日')) r='知夏：「……咁都好，我今日真係想早啲返屋企。」';
+  else if(v.includes('公司')||v.includes('煩')) r='知夏：「係咪阿姐又改你稿？我上次見你眼都紅埋。」';
+  else r='知夏：「你突然咁主動，樂言會嚇一跳㗎。」';
+  const el=$('possReaction'); el.textContent=r; el.classList.add('show');
+  addMood(8); addEvent('知夏聽咗你嘅指示，同樂言傾多咗幾句。');
+  syncHUD();
+});
+
+/* ---------- 手機 ---------- */
+let phoneTab='msg';
+function phoneNow(){ return String(Math.floor(S.time/60)).padStart(2,'0')+':'+String(S.time%60).padStart(2,'0'); }
+const CHATS=[
+ {id:'chan',who:'陳樂言',a:AGENTS[1],preview:'收工未？想飲奶茶…',msgs:[['ot','係咪就收工？'],['me','差唔多，喺度執緊咖啡機'],['ot','咁我喺門口等你']]},
+ {id:'he',who:'許家晴',a:AGENTS[2],preview:'聽日新到洋桔梗…',msgs:[['ot','聽日新到洋桔梗，幫你留一束？'],['me','好呀，幾點開舖？']]},
+ {id:'landlord',who:'業主陳太',a:null,preview:'這個月租金…',msgs:[['ot','阿夏，呢個月租金記得過數 HK$3,200']]},
+ {id:'mum',who:'媽媽',a:null,preview:'天氣冷，著多件衫',msgs:[['ot','天氣凍，著多件衫']]}
+];
+function renderPhone(){
+  $('phoneTime').textContent=phoneNow();
+  const app=$('phoneApp');
+  if(phoneTab==='msg'){
+    app.innerHTML=CHATS.map(c=>`
+      <div class="chat" data-chat="${c.id}"><canvas width="34" height="34"></canvas>
+        <div style="flex:1;min-width:0"><b>${c.who}</b><p>${c.preview}</p></div></div>`).join('')
+      +`<div class="desc" style="margin-top:10px">（點對話可睇通訊內容）</div>`;
+    app.querySelectorAll('.chat').forEach((el,i)=>{ if(CHATS[i].a)drawAvatar(el.querySelector('canvas'),CHATS[i].a);
+      else{el.querySelector('canvas').getContext('2d').fillStyle='#3f6265';el.querySelector('canvas').getContext('2d').fillRect(0,0,34,34);}
+      el.addEventListener('click',()=>openThread(el.dataset.chat)); });
+  }
+  else if(phoneTab==='note'){
+    app.innerHTML=S.notes.map(n=>`<div class="diary"><time>${n.t}</time><div style="margin-top:4px">${n.d}</div></div>`).join('')
+      ||'<div class="desc">（仲未有日記，返屋企「寫日記」就會出現）</div>';
+  }
+  else {
+    const inc=TRANS.filter(t=>t.amt>0).reduce((s,t)=>s+t.amt,0);
+    app.innerHTML=`<div class="walcard"><div style="font-size:11px;opacity:.8">錢包餘額</div><b>HK$${S.balance.toLocaleString()}</b></div>`+
+      TRANS.slice(0,6).map(t=>`<div class="kv" style="border:0"><span style="font-size:11px">${t.d}</span><b class="money ${t.amt>0?'plus':'minus'}">${t.amt>0?'+':''}${t.amt}</b></div>`).join('');
+  }
+}
+function openThread(id){
+  const c=CHATS.find(x=>x.id===id);
+  $('phoneApp').innerHTML=`<div style="cursor:pointer;color:var(--amber);margin-bottom:8px" id="backChat">← 訊息</div>`+
+    c.msgs.map(m=>`<div class="msg ${m[0]}">${m[1]}</div>`).join('');
+  $('backChat').addEventListener('click',()=>{phoneTab='msg';renderPhone();});
+}
+document.querySelectorAll('.phone-tabs button').forEach(b=>b.addEventListener('click',()=>{
+  phoneTab=b.dataset.tab;
+  document.querySelectorAll('.phone-tabs button').forEach(x=>x.classList.toggle('on',x===b));
+  renderPhone();
+}));
+$('phoneOv').addEventListener('click',e=>{ if(e.target===$('phoneOv'))$('phoneOv').classList.remove('open'); });
+
+/* ---------- HUD / Dock / 按鈕 ---------- */
+function syncHUD(){
+  $('hudTime').textContent=String(Math.floor(S.time/60)).padStart(2,'0')+':'+String(S.time%60).padStart(2,'0');
+  $('hudBal').textContent=S.balance.toLocaleString();
+  $('hudJob').textContent=S.occupation;
+  $('hudMood').textContent=S.mood>=75?'輕鬆':S.mood>=55?'平靜':S.mood>=35?'有啲攰':'低落';
+}
+setInterval(()=>{advanceTime(1);},4000);
+
+document.querySelectorAll('.dock button').forEach(b=>b.addEventListener('click',()=>{
+  document.querySelectorAll('.dock button').forEach(x=>x.classList.toggle('on',x===b));
+  const v=b.dataset.view;
+  if(v==='city'){ closePanel(); }
+  else if(v==='people')openPanel('residents');
+  else if(v==='career')openPanel('career');
+  else if(v==='wealth')openPanel('wealth');
+  else if(v==='achv')openPanel('achv');
+  else if(v==='phone'){ renderPhone(); $('phoneOv').classList.add('open'); }
+}));
+$('avatarBtn').addEventListener('click',()=>openProfile('lin'));
+$('addBtn').addEventListener('click',()=>openPanel('wealth'));
+$('guideBtn').addEventListener('click',()=>openPanel('guide'));
+$('districtBtn').addEventListener('click',()=>toast('深水埗 · 福華街（示範地點）'));
+$('namesToggle').addEventListener('click',function(){ this.classList.toggle('on'); document.body.classList.toggle('nameless',!this.classList.contains('on')); });
+$('feedToggle').addEventListener('click',()=>{ const f=$('feedList'); f.style.display=f.style.display==='none'?'':'none'; });
+$('possessBtn').addEventListener('click',openPossess);
+$('zoomIn').addEventListener('click',()=>{cam.z=Math.min(3.2,cam.z*1.2);clampCam();applyCam();});
+$('zoomOut').addEventListener('click',()=>{cam.z=Math.max(Math.max(innerWidth/1600,innerHeight/1000),cam.z/1.2);clampCam();applyCam();});
+$('locateBtn').addEventListener('click',()=>{ const a=actAgents[0];
+  cam.z=Math.min(3.2,Math.max(cam.z,Math.max(innerWidth/1600,innerHeight/1000)*1.35));
+  cam.x=innerWidth/2-(a.x*cam.z); cam.y=innerHeight/2-(a.y*cam.z); clampCam(); applyCam(); });
+
+addEventListener('resize',()=>{fitCam();});
+
+/* ---------- 啟動 ---------- */
+fitCam();
+addEvent('林知夏到咗好日子咖啡，準備返工。');
+addEvent('許家晴喺海棠花店執緊花桶。');
+addEvent('陳樂言放咗工，行緊去咖啡店。');
+addEvent('落起微雨，街燈著咗。');
+syncHUD();
+requestAnimationFrame(frame);
+</script>
+</body>
+</html>

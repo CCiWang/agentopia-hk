@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Agentopia · 視覺方案 4 選 1</title>
+<style>
+:root{font-family:"Microsoft JhengHei","PingFang TC","Noto Sans TC",sans-serif}
+body{margin:0;background:#0e1315;color:#e8ddc2;padding:26px}
+h1{font-size:22px;letter-spacing:1px;margin:0 0 4px}
+.sub{color:#8f876f;font-size:13px;margin-bottom:22px}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:20px}
+@media(max-width:1100px){.grid{grid-template-columns:1fr}}
+.card{border-radius:12px;overflow:hidden;border:1px solid rgba(232,221,194,.15);background:#0a0f11;box-shadow:0 16px 40px rgba(0,0,0,.5)}
+.stage{position:relative;height:380px;background:#111;overflow:hidden}
+.stage canvas{width:100%;height:100%;display:block;image-rendering:pixelated}
+/* 迷你 HUD / dock mock */
+.mhud{position:absolute;top:0;left:0;right:0;height:34px;display:flex;align-items:center;gap:6px;padding:0 10px;font-size:10.5px;z-index:5}
+.mdock{position:absolute;bottom:8px;left:50%;transform:translateX(-50%);display:flex;gap:4px;padding:5px;border-radius:10px;z-index:5}
+.mdock i{width:26px;height:18px;border-radius:6px;display:block}
+.mchip{padding:3px 8px;border-radius:6px;white-space:nowrap}
+.mlabel{padding:14px 16px 18px}
+.mlabel b{font-size:15px}
+.mlabel p{margin:4px 0 0;font-size:12px;color:#a89f85;line-height:1.6}
+.tag{display:inline-block;font-size:10px;padding:2px 8px;border-radius:99px;margin-bottom:6px}
+
+/* A 黃昏 */
+.th-a .mhud{background:linear-gradient(180deg,rgba(8,20,22,.9),rgba(8,20,22,.4))}
+.th-a .mchip{background:rgba(14,38,37,.85);color:#e8ddc2;border:1px solid rgba(242,230,200,.15)}
+.th-a .mdock{background:rgba(9,22,23,.92);border:1px solid rgba(242,230,200,.18)}
+.th-a .mdock i{background:#3a4a48}
+.th-a .mdock i:first-child{background:#f0b154}
+.th-a .tag{background:rgba(240,177,84,.15);color:#f0b154}
+
+/* B 日間 */
+.th-b .mhud{background:linear-gradient(180deg,rgba(255,255,255,.92),rgba(255,255,255,.55))}
+.th-b .mchip{background:#fff;color:#1d3a2e;border:1px solid rgba(29,58,46,.2)}
+.th-b .mdock{background:#fff;border:1px solid rgba(29,58,46,.2)}
+.th-b .mdock i{background:#cfe0d4}
+.th-b .mdock i:first-child{background:#3f8a5f}
+.th-b .tag{background:rgba(63,138,95,.15);color:#4e9a6e}
+
+/* C 霓虹夜 */
+.th-c .mhud{background:linear-gradient(180deg,rgba(6,10,20,.92),rgba(6,10,20,.4))}
+.th-c .mchip{background:rgba(10,18,28,.9);color:#8fe8de;border:1px solid rgba(71,169,156,.4)}
+.th-c .mdock{background:rgba(6,12,22,.92);border:1px solid rgba(240,69,60,.5)}
+.th-c .mdock i{background:#1e3a3a}
+.th-c .mdock i:first-child{background:#ff4d42}
+.th-c .tag{background:rgba(255,77,66,.12);color:#ff6a5e}
+
+/* D 復古像素 */
+.th-d .mhud{background:#20303a;border-bottom:3px solid #0a0f14;top:0}
+.th-d .mchip{background:#e8dcc0;color:#20303a;border:2px solid #0a0f14;border-radius:0;font-weight:700}
+.th-d .mdock{background:#e8dcc0;border:3px solid #0a0f14;border-radius:0;box-shadow:4px 4px 0 #0a0f14}
+.th-d .mdock i{background:#b8a880;border:1px solid #0a0f14}
+.th-d .mdock i:first-child{background:#c8453c}
+.th-d .tag{background:#c8453c;color:#fff}
+.foot{margin-top:22px;padding:16px 18px;border:1px dashed rgba(232,221,194,.3);border-radius:10px;color:#c8bfa5;font-size:13px;line-height:1.8}
+</style>
+</head>
+<body>
+<h1>Agentopia · 深水埗像素城市 — 視覺方案</h1>
+<div class="sub">同一張地圖、同一套玩法，換 4 套美術＋UI 皮膚。縮圖為實際繪製的像素地圖局部（咖啡館＋茶記街段）。</div>
+<div class="grid">
+
+  <div class="card th-a">
+    <div class="stage">
+      <canvas width="800" height="500"></canvas>
+      <div class="mhud">
+        <span class="mchip">☀ 18:42</span><span class="mchip">平靜</span><span class="mchip" style="margin-left:auto">HK$ 1,280</span>
+      </div>
+      <div class="mdock"><i></i><i></i><i></i><i></i><i></i><i></i></div>
+    </div>
+    <div class="mlabel">
+      <span class="tag">現行</span>
+      <b>方案 A · 雨後黃昏暖色</b>
+      <p>深色半透遊戲 HUD、琥珀色店燈、潮濕路面倒影。氛圍最濃，但整體偏暗、投影時略灰。</p>
+    </div>
+  </div>
+
+  <div class="card th-b">
+    <div class="stage">
+      <canvas width="800" height="500"></canvas>
+      <div class="mhud">
+        <span class="mchip">☀ 14:20</span><span class="mchip">開朗</span><span class="mchip" style="margin-left:auto">HK$ 1,280</span>
+      </div>
+      <div class="mdock"><i></i><i></i><i></i><i></i><i></i><i></i></div>
+    </div>
+    <div class="mlabel">
+      <span class="tag">Lagos 感</span>
+      <b>方案 B · 日間明亮街景</b>
+      <p>明亮日光、白卡 UI、清爽乾淨，最貼近 Lagos Life 的可讀性，課堂投影最清晰，但少了港島夜晚氣味。</p>
+    </div>
+  </div>
+
+  <div class="card th-c">
+    <div class="stage">
+      <canvas width="800" height="500"></canvas>
+      <div class="mhud">
+        <span class="mchip">☾ 22:15</span><span class="mchip">微醺</span><span class="mchip" style="margin-left:auto">HK$ 1,280</span>
+      </div>
+      <div class="mdock"><i></i><i></i><i></i><i></i><i></i><i></i></div>
+    </div>
+    <div class="mlabel">
+      <span class="tag">夜晚</span>
+      <b>方案 C · 霓虹夜市</b>
+      <p>深藍夜色、紅／青霓虹招牌發光、水窪倒映燈色。最有「香港夜景」記憶點，但偏暗、白天探索感弱。</p>
+    </div>
+  </div>
+
+  <div class="card th-d">
+    <div class="stage">
+      <canvas width="800" height="500"></canvas>
+      <div class="mhud">
+        <span class="mchip">☀ 15:05</span><span class="mchip">平靜</span><span class="mchip" style="margin-left:auto">HK$ 1,280</span>
+      </div>
+      <div class="mdock"><i></i><i></i><i></i><i></i><i></i><i></i></div>
+    </div>
+    <div class="mlabel">
+      <span class="tag">像素感最強</span>
+      <b>方案 D · 復古像素遊戲風</b>
+      <p>奶油色面板＋粗黑邊框＋硬陰影，像 GBA／復古模擬遊戲菜單。像素語言最統一、最「遊戲」，但質樸不華麗。</p>
+    </div>
+  </div>
+
+</div>
+<div class="foot">
+  <b>下一步：</b>直接回我「選 B」（或 A/C/D），我會把該配色＋UI 皮膚套用到主原型，並保留全部互動（拖曳縮放、23 個地點、工作財富、手機、附身）。<br>
+  也可以混合：例如「地圖用 C 夜景，UI 用 D 復古框」。
+</div>
+
+<script>
+/* ============= 主題化像素地圖繪製 ============= */
+const THEMES = {
+ A:{ road:'#3a3e40', walk:'#8f8a7d', walk2:'#87816f', curb:'#c9c2a8', bg:'#1c2224', band:'#33373a',
+   lit:['#f2c06a','#e8a94f','#d98e3a'], dark:['#33403e','#3a4443','#2b3634'], wash:'rgba(26,42,56,0.16)', glow:'rgba(240,180,90,0.18)',
+   fac:[['#a39c90','#7e776c','#bab3a6','#8d867a','#6f6a61'],['#b8ab8f','#968a70','#cfc3a6','#9a8e74','#7c7262'],
+        ['#c8b795','#a0906c','#dbcaa7','#a5946f','#83765c'],['#6c8577','#52695c','#85a090','#5a7264','#445a50'],
+        ['#3f6265','#2e4a4d','#588084','#335053','#274042'],['#9c5f50','#7d4a3e','#b57867','#875244','#6a4036'],
+        ['#b08968','#8d6c52','#c7a37e','#96745a','#6e5643'],['#c9c2b2','#a0998a','#ddd6c6','#a79f8f','#837d70']]},
+ B:{ road:'#7a7e80', walk:'#b5b0a2', walk2:'#aaa492', curb:'#e0dac8', bg:'#c9c4a8', band:'#b0ab90',
+   lit:['#f7e3a8','#f5d08a'], dark:['#9db8c0','#8aa8b2','#a8c4cc'], wash:'rgba(255,255,240,0.06)', glow:'rgba(255,240,180,0.10)',
+   fac:[['#c9c2b2','#a0998a','#e0d9c8','#a79f8f','#8f897c'],['#e3d5b5','#b8a982','#f0e4c8','#bfb08a','#9a8f76'],
+        ['#e0c98d','#b5a06a','#f0dca8','#b8a46e','#96865c'],['#7fa08a','#62826f','#9ab8a4','#6b8a76','#526e5c'],
+        ['#5a8085','#42646a','#76a0a4','#4a6a70','#38565c'],['#c07a66','#9a5a48','#d89a86','#a06450','#805040'],
+        ['#c9a87e','#a0825c','#e0c49a','#a88a62','#887050'],['#e8e2d4','#bcb6a6','#f6f0e4','#c2bcae','#a49e90']]},
+ C:{ road:'#161e24', walk:'#2a3238', walk2:'#232b31', curb:'#3a444c', bg:'#0a1220', band:'#141c28',
+   lit:['#ffb84a','#f09838','#7fd8e8'], dark:['#182028','#1c2630','#141c24'], wash:'rgba(8,12,26,0.30)', glow:'rgba(255,120,60,0.22)',
+   fac:[['#4a4a46','#36362f','#5e5e56','#3a3a34','#2c2c28'],['#5a5040','#443c30','#746850','#484034','#36302a'],
+        ['#5a4a30','#443822','#746038','#483c26','#38301e'],['#3a4f45','#2a3c34','#4e6658','#2e443a','#22342c'],
+        ['#2a3f45','#1e3036','#3c565c','#243840','#1a2a30'],['#5a352c','#422620','#74483c','#462c24','#36201c'],
+        ['#4f3f30','#3a2e22','#685440','#3e3226','#302820'],['#5a5850','#424038','#747268','#48463e','#38362f']]},
+ D:{ road:'#7a736a', walk:'#c9bfa8', walk2:'#bdb39c', curb:'#e5dcc2', bg:'#d8cba8', band:'#c0b490',
+   lit:['#f7d08a','#f5c06a'], dark:['#6a5f4a','#5a5240','#7a6f58'], wash:'rgba(140,100,50,0.10)', glow:'rgba(255,200,110,0.16)',
+   fac:[['#e0d0a8','#b0a080','#f0e2c0','#b8a884','#9a8a6a'],['#b08968','#8a6a4e','#c8a87e','#8e6e52','#745c40'],
+        ['#c07a5a','#9a5a44','#d89678','#a06448','#805038'],['#8a9a6a','#6a7a50','#a4b484','#6e8054','#586a40'],
+        ['#d8b36a','#b08e48','#ecd094','#b49450','#967840'],['#ecdcc0','#bcac90','#f8ecda','#c2b294','#a89a7c'],
+        ['#9ab08a','#7a8e6c','#b4c4a4','#7e9270','#667a58'],['#a85a4a','#86453a','#c07664','#8a4a40','#6e3a32']]}
+};
+
+function paintTheme(T, cv){
+  const c=cv.getContext('2d'); c.imageSmoothingEnabled=false;
+  let seed=42; const rnd=()=>{seed=(seed*1103515245+12345)&0x7fffffff;return seed/0x7fffffff;};
+  const ri=(a,b)=>a+Math.floor(rnd()*(b-a+1)); const pk=a=>a[Math.floor(rnd()*a.length)];
+  const R=(x,y,w,h,col)=>{c.fillStyle=col;c.fillRect(Math.round(x),Math.round(y),Math.round(w),Math.round(h));};
+  G=[];
+  R(0,0,1600,1000,T.bg);
+  // 街道
+  [[222],[486],[750]].forEach(([y])=>{
+    R(0,y,1600,14,T.walk);R(0,y+40,1600,14,T.walk2);R(0,y+14,1600,26,T.road);
+    R(0,y+14,1600,1,T.curb);R(0,y+40,1600,1,T.curb);
+    for(let i=0;i<180;i++)R(ri(0,1599),y+16+ri(0,23),1,1,pk(['#00000022','#ffffff11','#00000033']));
+  });
+  [350,700,1050].forEach(x=>{R(x,0,14,1000,T.walk);R(x+40,0,14,1000,T.walk2);R(x+14,0,26,1000,T.road);});
+  R(0,0,1600,222,T.band);R(0,276,1600,210,T.band);R(0,540,1600,210,T.band);
+  // 建築
+  function bd(x,w,top,bottom,fi){
+    const p=T.fac[fi]; const h=bottom-top;
+    R(x-1,bottom,w+2,3,'rgba(0,0,0,.25)');
+    R(x,top,w,h,p[0]);R(x,top,2,h,p[2]);R(x+w-2,top,2,h,p[1]);
+    const floors=Math.max(3,Math.round(h/36)), fh=(h-36)/floors;
+    for(let f=1;f<floors;f++)R(x,top+14+f*fh,w,1,p[3]);
+    for(let f=0;f<floors;f++){const fy=top+14+f*fh+3,n=Math.max(2,Math.floor((w-14)/22));
+      for(let i=0;i<n;i++){const wx=x+8+i*22;if(wx+11>x+w-6)break;
+        const lit=rnd()<0.36;R(wx,fy,11,10,'#101416');
+        R(wx+1,fy+1,9,8,lit?pk(T.lit):pk(T.dark));}}
+    R(x,top,w,15,p[4]);R(x,top,w,2,p[2]);
+    if(rnd()<0.8)R(x+ri(6,Math.max(8,w-26)),top+2,16,10,'#8d8f88');
+    if(rnd()<0.5)R(x+ri(4,w-20),top+3,1,11,'#4a4e50');
+    // 地下舖面
+    R(x,bottom-34,w,34,'#161c1e');
+    R(x+2,bottom-33,w-4,11,pk(['#b8342c','#d8c9a3','#2f3a3a','#c8453c','#5c8b76','#4a7a7e','#e8e2d2']));
+    R(x+4,bottom-20,w-8,16,'rgba(240,180,90,.45)');
+    G.push([x+w/2,bottom+8,50]);
+  }
+  bd(0,168,36,222,1);bd(168,96,42,222,0);bd(264,86,26,222,2);
+  bd(404,118,52,222,5);bd(522,92,44,222,3);bd(614,86,32,222,2);
+  bd(754,152,64,222,7);bd(906,144,46,222,6);bd(1104,188,14,222,1);
+  bd(1292,76,70,222,4);bd(1368,112,62,222,0);bd(1480,120,50,222,4);
+  bd(0,182,304,486,3);bd(182,92,310,486,2);bd(274,76,300,486,6);
+  bd(404,158,286,486,1);bd(562,138,296,486,5);bd(754,168,308,486,0);
+  bd(922,128,302,486,7);bd(1104,138,310,486,2);bd(1242,98,298,486,3);
+  bd(1340,118,306,486,1);bd(1458,142,290,486,6);
+  bd(0,168,582,750,3);bd(168,104,574,750,2);bd(272,78,590,750,0);
+  R(404,544,178,206,'#33454a');
+  for(let f=0;f<6;f++){for(let i=0;i<5;i++)R(414+i*32,550+f*26,14,16,rnd()<0.3?'#7a9aa8':'#223038');}
+  bd(582,118,578,750,1);bd(754,152,568,750,4);bd(906,144,580,750,2);
+  bd(1104,132,572,750,6);bd(1236,116,564,750,3);bd(1352,118,578,750,5);bd(1470,130,560,750,1);
+  // 底部：街市＋休憩處
+  R(0,804,1600,196,'#5b6058');
+  R(0,804,430,196,'#75705f');
+  R(430,804,270,196,'#3c4242');
+  [450,510,570,630].forEach(s=>{R(s,846,52,9,'#b8342c');for(let i=0;i<5;i++)R(s+i*10,846,5,9,'#d8c9a3');R(s+4,876,44,10,'#6a5a48');});
+  R(700,804,310,196,'#6b7070');R(716,826,150,9,'#9aa2a0');
+  R(740,886,50,17,'#3a7a4a');R(830,916,52,17,'#a8342c');
+  R(1010,804,160,196,'#6b7070');R(1036,872,64,44,'#161c1e');R(1122,846,18,52,'#123a3f');
+  R(1180,830,410,150,'#2e5a4e');R(1180,830,410,150,'rgba(238,232,214,.6)');R(1183,833,404,144,'#2e5a4e');
+  // 樹
+  function tree(cx,cy){R(cx-3,cy+8,6,6,'#5a4632');R(cx-11,cy-8,22,16,'#36503b');R(cx-8,cy-12,14,10,'#43624a');R(cx-2,cy-13,4,4,'#6d8560');}
+  tree(110,862);tree(40,930);tree(340,848);tree(377,248);tree(727,248);tree(1077,248);
+  // 黃昏罩＋燈
+  R(0,0,1600,1000,T.wash);
+  c.globalCompositeOperation='lighter';
+  G.forEach(([x,y,r])=>{const gr=c.createRadialGradient(x,y,2,x,y,r);gr.addColorStop(0,T.glow);gr.addColorStop(1,'rgba(0,0,0,0)');c.fillStyle=gr;c.fillRect(x-r,y-r,r*2,r*2);});
+  c.globalCompositeOperation='source-over';
+}
+
+const canvases=document.querySelectorAll('.stage canvas');
+const keys=['A','B','C','D'];
+canvases.forEach((cv,i)=>{
+  const off=document.createElement('canvas');off.width=1600;off.height=1000;
+  paintTheme(THEMES[keys[i]],off);
+  // 裁切一段街區（咖啡館＋茶記附近）做局部特寫
+  cv.getContext('2d').imageSmoothingEnabled=false;
+  cv.getContext('2d').drawImage(off,150,30,800,500,0,0,800,500);
+});
+</script>
+</body>
+</html>
